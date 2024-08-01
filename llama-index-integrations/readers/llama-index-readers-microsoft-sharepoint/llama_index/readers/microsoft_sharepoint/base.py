@@ -709,7 +709,7 @@ class SharePointReader(BasePydanticReader, ResourcesReaderMixin, FileSystemReade
         # Get the file ID
         # remove the site_name prefix
         file_path = (
-            str(input_file).lstrip("/").replace(f"{self.sharepoint_site_name}/", "", 1)
+            str(input_file).lstrip("/").replace(f"{self.sharepoint_site_name}\\", "", 1)
         )
         endpoint = f"{self._drive_id_endpoint}/{self._drive_id}/root:/{file_path}"
 

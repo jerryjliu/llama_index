@@ -37,10 +37,10 @@ loader = SharePointReader(
     client_id="<Client ID of the app>",
     client_secret="<Client Secret of the app>",
     tenant_id="<Tenant ID of the Microsoft Azure Directory>",
+    sharepoint_site_name="<Sharepoint Site Name>",
 )
 
 documents = loader.load_data(
-    sharepoint_site_name="<Sharepoint Site Name>",
     sharepoint_folder_path="<Folder Path>",
     recursive=True,
 )
