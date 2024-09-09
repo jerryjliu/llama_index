@@ -278,7 +278,7 @@ class QdrantVectorStore(BasePydanticVectorStore):
                             }
                         )
                 else:
-                    vectors.append(node.get_embedding())
+                    vectors.append({DENSE_VECTOR_NAME: node.get_embedding()})
 
                 metadata = node_to_metadata_dict(
                     node, remove_text=False, flat_metadata=self.flat_metadata
@@ -626,7 +626,7 @@ class QdrantVectorStore(BasePydanticVectorStore):
             else:
                 self._client.create_collection(
                     collection_name=collection_name,
-                    vectors_config=dense_config,
+                    vectors_config={DENSE_VECTOR_NAME: dense_config},
                     quantization_config=self._quantization_config,
                 )
 
@@ -678,7 +678,7 @@ class QdrantVectorStore(BasePydanticVectorStore):
             else:
                 await self._aclient.create_collection(
                     collection_name=collection_name,
-                    vectors_config=dense_config,
+                    vectors_config={DENSE_VECTOR_NAME: dense_config},
                     quantization_config=self._quantization_config,
                 )
             # To improve search performance Qdrant recommends setting up
@@ -813,9 +813,7 @@ class QdrantVectorStore(BasePydanticVectorStore):
                 ],
             )
             return self.parse_to_query_result(sparse_response[0])
-
-        elif self.enable_hybrid:
-            # search for dense vectors only
+        else:
             response = self._client.search_batch(
                 collection_name=self.collection_name,
                 requests=[
@@ -830,16 +828,7 @@ class QdrantVectorStore(BasePydanticVectorStore):
                     ),
                 ],
             )
-
             return self.parse_to_query_result(response[0])
-        else:
-            response = self._client.search(
-                collection_name=self.collection_name,
-                query_vector=query_embedding,
-                limit=query.similarity_top_k,
-                query_filter=query_filter,
-            )
-            return self.parse_to_query_result(response)
 
     async def aquery(
         self, query: VectorStoreQuery, **kwargs: Any
@@ -946,8 +935,7 @@ class QdrantVectorStore(BasePydanticVectorStore):
                 ],
             )
             return self.parse_to_query_result(sparse_response[0])
-        elif self.enable_hybrid:
-            # search for dense vectors only
+        else:
             response = await self._aclient.search_batch(
                 collection_name=self.collection_name,
                 requests=[
@@ -964,15 +952,6 @@ class QdrantVectorStore(BasePydanticVectorStore):
             )
 
             return self.parse_to_query_result(response[0])
-        else:
-            response = await self._aclient.search(
-                collection_name=self.collection_name,
-                query_vector=query_embedding,
-                limit=query.similarity_top_k,
-                query_filter=query_filter,
-            )
-
-            return self.parse_to_query_result(response)
 
     def parse_to_query_result(self, response: List[Any]) -> VectorStoreQueryResult:
         """
