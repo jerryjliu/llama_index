@@ -7,6 +7,8 @@ import pgvector  # noqa
 import psycopg2  # noqa
 import sqlalchemy
 import sqlalchemy.ext.asyncio
+from sqlalchemy.sql.elements import SQLCoreOperations
+
 from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.schema import BaseNode, MetadataMode, TextNode
 from llama_index.core.vector_stores.types import (
@@ -71,6 +73,7 @@ def get_data_model(
         class HybridAbstractData(base):  # type: ignore
             __abstract__ = True  # this line is necessary
             id = Column(BIGINT, primary_key=True, autoincrement=True)
+            index_id = Column(VARCHAR, nullable=False)
             text = Column(VARCHAR, nullable=False)
             metadata_ = Column(metadata_dtype)
             node_id = Column(VARCHAR)
@@ -98,6 +101,7 @@ def get_data_model(
         class AbstractData(base):  # type: ignore
             __abstract__ = True  # this line is necessary
             id = Column(BIGINT, primary_key=True, autoincrement=True)
+            index_id = Column(VARCHAR, nullable=False)
             text = Column(VARCHAR, nullable=False)
             metadata_ = Column(metadata_dtype)
             node_id = Column(VARCHAR)
@@ -439,9 +443,10 @@ class PGVectorStore(BasePydanticVectorStore):
                             raise
             self._is_initialized = True
 
-    def _node_to_table_row(self, node: BaseNode) -> Any:
+    def _node_to_table_row(self, node: BaseNode, index_id: str) -> Any:
         return self._table_class(
             node_id=node.node_id,
+            index_id=index_id,
             embedding=node.get_embedding(),
             text=node.get_content(metadata_mode=MetadataMode.NONE),
             metadata_=node_to_metadata_dict(
@@ -451,24 +456,36 @@ class PGVectorStore(BasePydanticVectorStore):
             ),
         )
 
-    def add(self, nodes: List[BaseNode], **add_kwargs: Any) -> List[str]:
+    def move_nodes(self, from_index_id: str, to_index_id: str):
+        from sqlalchemy import update
+        with self._session() as session, session.begin():
+            stmt = (
+                update(self._table_class).
+                where(self._table_class.index_id == from_index_id).
+                values(index_id=to_index_id)
+            )
+            session.execute(stmt)
+            session.commit()
+            print("")
+
+    def add(self, nodes: List[BaseNode], index_id: Optional[str] = None, **add_kwargs: Any) -> List[str]:
         self._initialize()
         ids = []
         with self._session() as session, session.begin():
             for node in nodes:
                 ids.append(node.node_id)
-                item = self._node_to_table_row(node)
+                item = self._node_to_table_row(node, index_id)
                 session.add(item)
             session.commit()
         return ids
 
-    async def async_add(self, nodes: List[BaseNode], **kwargs: Any) -> List[str]:
+    async def async_add(self, nodes: List[BaseNode], index_id: Optional[str] = None, **kwargs: Any) -> List[str]:
         self._initialize()
         ids = []
         async with self._async_session() as session, session.begin():
             for node in nodes:
                 ids.append(node.node_id)
-                item = self._node_to_table_row(node)
+                item = self._node_to_table_row(node, index_id)
                 session.add(item)
             await session.commit()
         return ids
@@ -575,17 +592,27 @@ class PGVectorStore(BasePydanticVectorStore):
     def _apply_filters_and_limit(
         self,
         stmt: "Select",
+        index_id: str,
         limit: int,
         metadata_filters: Optional[MetadataFilters] = None,
     ) -> Any:
+        from sqlalchemy.sql import and_
         if metadata_filters:
             stmt = stmt.where(  # type: ignore
-                self._recursively_apply_filters(metadata_filters)
+                and_(
+                    self._table_class.index_id == index_id,
+                    self._recursively_apply_filters(metadata_filters)
+                )
+            )
+        else:
+            stmt = stmt.where(  # type: ignore
+                self._table_class.index_id == index_id,
             )
         return stmt.limit(limit)  # type: ignore
 
     def _build_query(
         self,
+        index_id: str,
         embedding: Optional[List[float]],
         limit: int = 10,
         metadata_filters: Optional[MetadataFilters] = None,
@@ -600,16 +627,17 @@ class PGVectorStore(BasePydanticVectorStore):
             self._table_class.embedding.cosine_distance(embedding).label("distance"),
         ).order_by(text("distance asc"))
 
-        return self._apply_filters_and_limit(stmt, limit, metadata_filters)
+        return self._apply_filters_and_limit(stmt, index_id, limit, metadata_filters)
 
     def _query_with_score(
         self,
         embedding: Optional[List[float]],
+        index_id: str,
         limit: int = 10,
         metadata_filters: Optional[MetadataFilters] = None,
         **kwargs: Any,
     ) -> List[DBEmbeddingRow]:
-        stmt = self._build_query(embedding, limit, metadata_filters)
+        stmt = self._build_query(index_id, embedding, limit, metadata_filters)
         with self._session() as session, session.begin():
             from sqlalchemy import text
 
@@ -644,11 +672,12 @@ class PGVectorStore(BasePydanticVectorStore):
     async def _aquery_with_score(
         self,
         embedding: Optional[List[float]],
+        index_id: str,
         limit: int = 10,
         metadata_filters: Optional[MetadataFilters] = None,
         **kwargs: Any,
     ) -> List[DBEmbeddingRow]:
-        stmt = self._build_query(embedding, limit, metadata_filters)
+        stmt = self._build_query(index_id, embedding, limit, metadata_filters)
         async with self._async_session() as async_session, async_session.begin():
             from sqlalchemy import text
 
@@ -680,6 +709,7 @@ class PGVectorStore(BasePydanticVectorStore):
     def _build_sparse_query(
         self,
         query_str: Optional[str],
+        index_id: str,
         limit: int,
         metadata_filters: Optional[MetadataFilters] = None,
     ) -> Any:
@@ -724,15 +754,16 @@ class PGVectorStore(BasePydanticVectorStore):
         )
 
         # type: ignore
-        return self._apply_filters_and_limit(stmt, limit, metadata_filters)
+        return self._apply_filters_and_limit(stmt, index_id, limit, metadata_filters)
 
     async def _async_sparse_query_with_rank(
         self,
         query_str: Optional[str] = None,
+        index_id: Optional[str] = None,
         limit: int = 10,
         metadata_filters: Optional[MetadataFilters] = None,
     ) -> List[DBEmbeddingRow]:
-        stmt = self._build_sparse_query(query_str, limit, metadata_filters)
+        stmt = self._build_sparse_query(query_str, index_id, limit, metadata_filters)
         async with self._async_session() as async_session, async_session.begin():
             res = await async_session.execute(stmt)
             return [
@@ -748,10 +779,11 @@ class PGVectorStore(BasePydanticVectorStore):
     def _sparse_query_with_rank(
         self,
         query_str: Optional[str] = None,
+        index_id: Optional[str] = None,
         limit: int = 10,
         metadata_filters: Optional[MetadataFilters] = None,
     ) -> List[DBEmbeddingRow]:
-        stmt = self._build_sparse_query(query_str, limit, metadata_filters)
+        stmt = self._build_sparse_query(query_str, index_id, limit, metadata_filters)
         with self._session() as session, session.begin():
             res = session.execute(stmt)
             return [
@@ -765,7 +797,7 @@ class PGVectorStore(BasePydanticVectorStore):
             ]
 
     async def _async_hybrid_query(
-        self, query: VectorStoreQuery, **kwargs: Any
+        self, query: VectorStoreQuery, index_id: str, **kwargs: Any
     ) -> List[DBEmbeddingRow]:
         import asyncio
 
@@ -777,12 +809,13 @@ class PGVectorStore(BasePydanticVectorStore):
         results = await asyncio.gather(
             self._aquery_with_score(
                 query.query_embedding,
+                index_id,
                 query.similarity_top_k,
                 query.filters,
                 **kwargs,
             ),
             self._async_sparse_query_with_rank(
-                query.query_str, sparse_top_k, query.filters
+                query.query_str, index_id, sparse_top_k, query.filters
             ),
         )
 
@@ -791,7 +824,7 @@ class PGVectorStore(BasePydanticVectorStore):
         return _dedup_results(all_results)
 
     def _hybrid_query(
-        self, query: VectorStoreQuery, **kwargs: Any
+        self, query: VectorStoreQuery, index_id: str, **kwargs: Any
     ) -> List[DBEmbeddingRow]:
         if query.alpha is not None:
             _logger.warning("postgres hybrid search does not support alpha parameter.")
@@ -800,13 +833,14 @@ class PGVectorStore(BasePydanticVectorStore):
 
         dense_results = self._query_with_score(
             query.query_embedding,
+            index_id,
             query.similarity_top_k,
             query.filters,
             **kwargs,
         )
 
         sparse_results = self._sparse_query_with_rank(
-            query.query_str, sparse_top_k, query.filters
+            query.query_str, index_id, sparse_top_k, query.filters
         )
 
         all_results = dense_results + sparse_results
@@ -840,22 +874,23 @@ class PGVectorStore(BasePydanticVectorStore):
         )
 
     async def aquery(
-        self, query: VectorStoreQuery, **kwargs: Any
+        self, query: VectorStoreQuery, index_id: Optional[str] = None, **kwargs: Any
     ) -> VectorStoreQueryResult:
         self._initialize()
         if query.mode == VectorStoreQueryMode.HYBRID:
-            results = await self._async_hybrid_query(query, **kwargs)
+            results = await self._async_hybrid_query(query, index_id, **kwargs)
         elif query.mode in [
             VectorStoreQueryMode.SPARSE,
             VectorStoreQueryMode.TEXT_SEARCH,
         ]:
             sparse_top_k = query.sparse_top_k or query.similarity_top_k
             results = await self._async_sparse_query_with_rank(
-                query.query_str, sparse_top_k, query.filters
+                query.query_str, index_id, sparse_top_k, query.filters
             )
         elif query.mode == VectorStoreQueryMode.DEFAULT:
             results = await self._aquery_with_score(
                 query.query_embedding,
+                index_id,
                 query.similarity_top_k,
                 query.filters,
                 **kwargs,
@@ -865,21 +900,22 @@ class PGVectorStore(BasePydanticVectorStore):
 
         return self._db_rows_to_query_result(results)
 
-    def query(self, query: VectorStoreQuery, **kwargs: Any) -> VectorStoreQueryResult:
+    def query(self, query: VectorStoreQuery, index_id: Optional[str] = None, **kwargs: Any) -> VectorStoreQueryResult:
         self._initialize()
         if query.mode == VectorStoreQueryMode.HYBRID:
-            results = self._hybrid_query(query, **kwargs)
+            results = self._hybrid_query(query, index_id, **kwargs)
         elif query.mode in [
             VectorStoreQueryMode.SPARSE,
             VectorStoreQueryMode.TEXT_SEARCH,
         ]:
             sparse_top_k = query.sparse_top_k or query.similarity_top_k
             results = self._sparse_query_with_rank(
-                query.query_str, sparse_top_k, query.filters
+                query.query_str, index_id, sparse_top_k, query.filters
             )
         elif query.mode == VectorStoreQueryMode.DEFAULT:
             results = self._query_with_score(
                 query.query_embedding,
+                index_id,
                 query.similarity_top_k,
                 query.filters,
                 **kwargs,
@@ -905,6 +941,7 @@ class PGVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         **delete_kwargs: Any,
     ) -> None:
         """Deletes nodes.
@@ -917,16 +954,20 @@ class PGVectorStore(BasePydanticVectorStore):
             return
 
         from sqlalchemy import delete
+        from sqlalchemy.sql import and_
 
         self._initialize()
         with self._session() as session, session.begin():
             stmt = delete(self._table_class)
 
+            wheres = [self._table_class.index_id == index_id]
             if node_ids:
-                stmt = stmt.where(self._table_class.node_id.in_(node_ids))
+                wheres.append(self._table_class.node_id.in_(node_ids))
 
             if filters:
-                stmt = stmt.where(self._recursively_apply_filters(filters))
+                wheres.append(self._recursively_apply_filters(filters))
+
+            stmt = stmt.where(and_(*wheres))
 
             session.execute(stmt)
             session.commit()
@@ -935,6 +976,7 @@ class PGVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         **delete_kwargs: Any,
     ) -> None:
         """Deletes nodes asynchronously.
@@ -947,32 +989,36 @@ class PGVectorStore(BasePydanticVectorStore):
             return
 
         from sqlalchemy import delete
+        from sqlalchemy.sql import and_, column
 
         self._initialize()
         async with self._async_session() as async_session, async_session.begin():
             stmt = delete(self._table_class)
 
+            wheres = [self._table_class.index_id == index_id]
             if node_ids:
-                stmt = stmt.where(self._table_class.node_id.in_(node_ids))
+                wheres.append(self._table_class.node_id.in_(node_ids))
 
             if filters:
-                stmt = stmt.where(self._recursively_apply_filters(filters))
+                wheres.append(self._recursively_apply_filters(filters))
 
+            stmt = stmt.where(and_(*wheres))
             await async_session.execute(stmt)
             await async_session.commit()
 
-    def clear(self) -> None:
+    def clear(self, index_id: Optional[str] = None) -> None:
         """Clears table."""
         from sqlalchemy import delete
+        from sqlalchemy.sql import and_, column
 
         self._initialize()
         with self._session() as session, session.begin():
-            stmt = delete(self._table_class)
+            stmt = delete(self._table_class).where(self._table_class.index_id == index_id)
 
             session.execute(stmt)
             session.commit()
 
-    async def aclear(self) -> None:
+    async def aclear(self, index_id: Optional[str] = None) -> None:
         """Asynchronously clears table."""
         from sqlalchemy import delete
 
@@ -987,6 +1033,7 @@ class PGVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
     ) -> List[BaseNode]:
         """Get nodes from vector store."""
         assert (
@@ -995,6 +1042,7 @@ class PGVectorStore(BasePydanticVectorStore):
 
         self._initialize()
         from sqlalchemy import select
+        from sqlalchemy.sql import and_
 
         stmt = select(
             self._table_class.node_id,
@@ -1003,12 +1051,16 @@ class PGVectorStore(BasePydanticVectorStore):
             self._table_class.embedding,
         )
 
+        wheres = [self._table_class.index_id == index_id]
         if node_ids:
-            stmt = stmt.where(self._table_class.node_id.in_(node_ids))
+            wheres.append(self._table_class.node_id.in_(node_ids))
 
         if filters:
-            filter_clause = self._recursively_apply_filters(filters)
-            stmt = stmt.where(filter_clause)
+            wheres.append(self._recursively_apply_filters(filters))
+
+        stmt = stmt.where(and_(*wheres))
+
+
 
         nodes: List[BaseNode] = []
 

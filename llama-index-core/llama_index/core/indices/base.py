@@ -152,6 +152,8 @@ class BaseIndex(Generic[IS], ABC):
         # add the new index struct
         self._index_struct.index_id = index_id
         self._storage_context.index_store.add_index_struct(self._index_struct)
+        if hasattr(self._vector_store, "move_nodes"):
+            self._vector_store.move_nodes(from_index_id=old_id, to_index_id=index_id)
 
     @property
     def docstore(self) -> BaseDocumentStore:

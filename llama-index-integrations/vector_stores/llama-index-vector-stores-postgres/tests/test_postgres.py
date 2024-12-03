@@ -25,7 +25,7 @@ from llama_index.vector_stores.postgres import PGVectorStore
 PARAMS: Dict[str, Union[str, int]] = {
     "host": "localhost",
     "user": "postgres",
-    "password": "mark90",
+    "password": "password",
     "port": 5432,
 }
 TEST_DB = "test_vector_db"
@@ -295,16 +295,16 @@ async def test_add_to_db_and_query(
     pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
     q = VectorStoreQuery(query_embedding=_get_sample_vector(1.0), similarity_top_k=1)
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 1
     assert res.nodes[0].node_id == "aaa"
@@ -317,18 +317,18 @@ async def test_query_hnsw(
     pg_hnsw: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
 ):
     if use_async:
-        await pg_hnsw.async_add(node_embeddings)
+        await pg_hnsw.async_add(node_embeddings, index_id="42")
     else:
-        pg_hnsw.add(node_embeddings)
+        pg_hnsw.add(node_embeddings, index_id="42")
 
     assert isinstance(pg_hnsw, PGVectorStore)
     assert hasattr(pg_hnsw, "_engine")
 
     q = VectorStoreQuery(query_embedding=_get_sample_vector(1.0), similarity_top_k=1)
     if use_async:
-        res = await pg_hnsw.aquery(q)
+        res = await pg_hnsw.aquery(q, index_id="42")
     else:
-        res = pg_hnsw.query(q)
+        res = pg_hnsw.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 1
     assert res.nodes[0].node_id == "aaa"
@@ -341,9 +341,9 @@ async def test_add_to_db_and_query_with_metadata_filters(
     pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
     filters = MetadataFilters(
@@ -353,9 +353,9 @@ async def test_add_to_db_and_query_with_metadata_filters(
         query_embedding=_get_sample_vector(0.5), similarity_top_k=10, filters=filters
     )
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 1
     assert res.nodes[0].node_id == "bbb"
@@ -368,9 +368,9 @@ async def test_add_to_db_and_query_with_metadata_filters_with_in_operator(
     pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
     filters = MetadataFilters(
@@ -386,9 +386,9 @@ async def test_add_to_db_and_query_with_metadata_filters_with_in_operator(
         query_embedding=_get_sample_vector(0.5), similarity_top_k=10, filters=filters
     )
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 1
     assert res.nodes[0].node_id == "bbb"
@@ -401,9 +401,9 @@ async def test_add_to_db_and_query_with_metadata_filters_with_in_operator_and_si
     pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
     filters = MetadataFilters(
@@ -419,9 +419,9 @@ async def test_add_to_db_and_query_with_metadata_filters_with_in_operator_and_si
         query_embedding=_get_sample_vector(0.5), similarity_top_k=10, filters=filters
     )
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 1
     assert res.nodes[0].node_id == "bbb"
@@ -434,9 +434,9 @@ async def test_add_to_db_and_query_with_metadata_filters_with_contains_operator(
     pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
     filters = MetadataFilters(
@@ -452,9 +452,9 @@ async def test_add_to_db_and_query_with_metadata_filters_with_contains_operator(
         query_embedding=_get_sample_vector(0.5), similarity_top_k=10, filters=filters
     )
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 1
     assert res.nodes[0].node_id == "ccc"
@@ -467,18 +467,18 @@ async def test_add_to_db_query_and_delete(
     pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
 
     q = VectorStoreQuery(query_embedding=_get_sample_vector(0.1), similarity_top_k=1)
 
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 1
     assert res.nodes[0].node_id == "bbb"
@@ -493,9 +493,9 @@ async def test_sparse_query(
     use_async: bool,
 ) -> None:
     if use_async:
-        await pg_hybrid.async_add(hybrid_node_embeddings)
+        await pg_hybrid.async_add(hybrid_node_embeddings, index_id="42")
     else:
-        pg_hybrid.add(hybrid_node_embeddings)
+        pg_hybrid.add(hybrid_node_embeddings, index_id="42")
     assert isinstance(pg_hybrid, PGVectorStore)
     assert hasattr(pg_hybrid, "_engine")
 
@@ -508,9 +508,9 @@ async def test_sparse_query(
     )
 
     if use_async:
-        res = await pg_hybrid.aquery(q)
+        res = await pg_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hybrid.query(q)
+        res = pg_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 2
     assert res.nodes[0].node_id == "ccc"
@@ -526,9 +526,9 @@ async def test_hybrid_query(
     use_async: bool,
 ) -> None:
     if use_async:
-        await pg_hybrid.async_add(hybrid_node_embeddings)
+        await pg_hybrid.async_add(hybrid_node_embeddings, index_id="42")
     else:
-        pg_hybrid.add(hybrid_node_embeddings)
+        pg_hybrid.add(hybrid_node_embeddings, index_id="42")
     assert isinstance(pg_hybrid, PGVectorStore)
     assert hasattr(pg_hybrid, "_engine")
 
@@ -541,9 +541,9 @@ async def test_hybrid_query(
     )
 
     if use_async:
-        res = await pg_hybrid.aquery(q)
+        res = await pg_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hybrid.query(q)
+        res = pg_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 3
     assert res.nodes[0].node_id == "aaa"
@@ -559,9 +559,9 @@ async def test_hybrid_query(
     )
 
     if use_async:
-        res = await pg_hybrid.aquery(q)
+        res = await pg_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hybrid.query(q)
+        res = pg_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 4
     assert res.nodes[0].node_id == "aaa"
@@ -578,9 +578,9 @@ async def test_hybrid_query(
     )
 
     if use_async:
-        res = await pg_hybrid.aquery(q)
+        res = await pg_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hybrid.query(q)
+        res = pg_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 4
     assert res.nodes[0].node_id == "aaa"
@@ -598,9 +598,9 @@ async def test_hybrid_query(
     use_async: bool,
 ) -> None:
     if use_async:
-        await pg_hnsw_hybrid.async_add(hybrid_node_embeddings)
+        await pg_hnsw_hybrid.async_add(hybrid_node_embeddings, index_id="42")
     else:
-        pg_hnsw_hybrid.add(hybrid_node_embeddings)
+        pg_hnsw_hybrid.add(hybrid_node_embeddings, index_id="42")
     assert isinstance(pg_hnsw_hybrid, PGVectorStore)
     assert hasattr(pg_hnsw_hybrid, "_engine")
 
@@ -613,9 +613,9 @@ async def test_hybrid_query(
     )
 
     if use_async:
-        res = await pg_hnsw_hybrid.aquery(q)
+        res = await pg_hnsw_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hnsw_hybrid.query(q)
+        res = pg_hnsw_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 3
     assert res.nodes[0].node_id == "aaa"
@@ -631,9 +631,9 @@ async def test_hybrid_query(
     )
 
     if use_async:
-        res = await pg_hnsw_hybrid.aquery(q)
+        res = await pg_hnsw_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hnsw_hybrid.query(q)
+        res = pg_hnsw_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 4
     assert res.nodes[0].node_id == "aaa"
@@ -650,9 +650,9 @@ async def test_hybrid_query(
     )
 
     if use_async:
-        res = await pg_hnsw_hybrid.aquery(q)
+        res = await pg_hnsw_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hnsw_hybrid.query(q)
+        res = pg_hnsw_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 4
     assert res.nodes[0].node_id == "aaa"
@@ -670,9 +670,9 @@ async def test_add_to_db_and_hybrid_query_with_metadata_filters(
     use_async: bool,
 ) -> None:
     if use_async:
-        await pg_hybrid.async_add(hybrid_node_embeddings)
+        await pg_hybrid.async_add(hybrid_node_embeddings, index_id="42")
     else:
-        pg_hybrid.add(hybrid_node_embeddings)
+        pg_hybrid.add(hybrid_node_embeddings, index_id="42")
     assert isinstance(pg_hybrid, PGVectorStore)
     assert hasattr(pg_hybrid, "_engine")
     filters = MetadataFilters(
@@ -686,9 +686,9 @@ async def test_add_to_db_and_hybrid_query_with_metadata_filters(
         mode=VectorStoreQueryMode.HYBRID,
     )
     if use_async:
-        res = await pg_hybrid.aquery(q)
+        res = await pg_hybrid.aquery(q, index_id="42")
     else:
-        res = pg_hybrid.query(q)
+        res = pg_hybrid.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 2
     assert res.nodes[0].node_id == "bbb"
@@ -706,7 +706,7 @@ def test_hybrid_query_fails_if_no_query_str_provided(
     )
 
     with pytest.raises(Exception) as exc:
-        pg_hybrid.query(q)
+        pg_hybrid.query(q, index_id="42")
 
         assert str(exc) == "query_str must be specified for a sparse vector query."
 
@@ -718,16 +718,16 @@ async def test_add_to_db_and_query_index_nodes(
     pg: PGVectorStore, index_node_embeddings: List[BaseNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(index_node_embeddings)
+        await pg.async_add(index_node_embeddings, index_id="42")
     else:
-        pg.add(index_node_embeddings)
+        pg.add(index_node_embeddings, index_id="42")
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
     q = VectorStoreQuery(query_embedding=_get_sample_vector(5.0), similarity_top_k=2)
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert res.nodes
     assert len(res.nodes) == 2
     assert res.nodes[0].node_id == "aaa_ref"
@@ -744,9 +744,9 @@ async def test_delete_nodes(
     pg: PGVectorStore, node_embeddings: List[BaseNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
 
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
@@ -755,35 +755,35 @@ async def test_delete_nodes(
 
     # test deleting nothing
     if use_async:
-        await pg.adelete_nodes()
+        await pg.adelete_nodes(index_id="42")
     else:
-        pg.delete_nodes()
+        pg.delete_nodes(index_id="42")
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i in res.ids for i in ["aaa", "bbb", "ccc"])
 
     # test deleting element that doesn't exist
     if use_async:
-        await pg.adelete_nodes(["asdf"])
+        await pg.adelete_nodes(["asdf"], index_id="42")
     else:
-        pg.delete_nodes(["asdf"])
+        pg.delete_nodes(["asdf"], index_id="42")
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i in res.ids for i in ["aaa", "bbb", "ccc"])
 
     # test deleting list
     if use_async:
-        await pg.adelete_nodes(["aaa", "bbb"])
+        await pg.adelete_nodes(["aaa", "bbb"], index_id="42")
     else:
-        pg.delete_nodes(["aaa", "bbb"])
+        pg.delete_nodes(["aaa", "bbb"], index_id="42")
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i not in res.ids for i in ["aaa", "bbb"])
     assert "ccc" in res.ids
 
@@ -795,9 +795,9 @@ async def test_delete_nodes_metadata(
     pg: PGVectorStore, node_embeddings: List[BaseNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
 
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
@@ -815,13 +815,13 @@ async def test_delete_nodes_metadata(
         ]
     )
     if use_async:
-        await pg.adelete_nodes(["aaa", "bbb"], filters=filters)
+        await pg.adelete_nodes(["aaa", "bbb"], filters=filters, index_id="42")
     else:
-        pg.delete_nodes(["aaa", "bbb"], filters=filters)
+        pg.delete_nodes(["aaa", "bbb"], filters=filters, index_id="42")
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i in res.ids for i in ["aaa", "ccc", "ddd"])
     assert "bbb" not in res.ids
 
@@ -836,13 +836,13 @@ async def test_delete_nodes_metadata(
         ]
     )
     if use_async:
-        await pg.adelete_nodes(["aaa"], filters=filters)
+        await pg.adelete_nodes(["aaa"], filters=filters, index_id="42")
     else:
-        pg.delete_nodes(["aaa"], filters=filters)
+        pg.delete_nodes(["aaa"], filters=filters, index_id="42")
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i not in res.ids for i in ["bbb", "aaa"])
     assert all(i in res.ids for i in ["ccc", "ddd"])
 
@@ -857,13 +857,13 @@ async def test_delete_nodes_metadata(
         ]
     )
     if use_async:
-        await pg.adelete_nodes(["ccc"], filters=filters)
+        await pg.adelete_nodes(["ccc"], filters=filters, index_id="42")
     else:
-        pg.delete_nodes(["ccc"], filters=filters)
+        pg.delete_nodes(["ccc"], filters=filters, index_id="42")
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i not in res.ids for i in ["bbb", "aaa"])
     assert all(i in res.ids for i in ["ccc", "ddd"])
 
@@ -878,13 +878,13 @@ async def test_delete_nodes_metadata(
         ]
     )
     if use_async:
-        await pg.adelete_nodes(filters=filters)
+        await pg.adelete_nodes(filters=filters, index_id="42")
     else:
-        pg.delete_nodes(filters=filters)
+        pg.delete_nodes(filters=filters, index_id="42")
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i not in res.ids for i in ["bbb", "aaa", "ddd"])
     assert "ccc" in res.ids
 
@@ -903,9 +903,9 @@ async def test_hnsw_index_creation(
     # calling add will make the db initialization run
     for pg in pg_hnsw_multiple:
         if use_async:
-            await pg.async_add(node_embeddings)
+            await pg.async_add(node_embeddings, index_id="42")
         else:
-            pg.add(node_embeddings)
+            pg.add(node_embeddings, index_id="42")
 
     # these are the actual table and index names that PGVectorStore automatically created
     data_test_table_name = f"data_{TEST_TABLE_NAME}"
@@ -931,9 +931,9 @@ async def test_clear(
     pg: PGVectorStore, node_embeddings: List[BaseNode], use_async: bool
 ) -> None:
     if use_async:
-        await pg.async_add(node_embeddings)
+        await pg.async_add(node_embeddings, index_id="42")
     else:
-        pg.add(node_embeddings)
+        pg.add(node_embeddings, index_id="42")
 
     assert isinstance(pg, PGVectorStore)
     assert hasattr(pg, "_engine")
@@ -941,20 +941,20 @@ async def test_clear(
     q = VectorStoreQuery(query_embedding=_get_sample_vector(0.5), similarity_top_k=10)
 
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i in res.ids for i in ["bbb", "aaa", "ddd", "ccc"])
 
     if use_async:
-        await pg.aclear()
+        await pg.aclear(index_id="42")
     else:
-        pg.clear()
+        pg.clear(index_id="42")
 
     if use_async:
-        res = await pg.aquery(q)
+        res = await pg.aquery(q, index_id="42")
     else:
-        res = pg.query(q)
+        res = pg.query(q, index_id="42")
     assert all(i not in res.ids for i in ["bbb", "aaa", "ddd", "ccc"])
     assert len(res.ids) == 0
 
@@ -1026,8 +1026,8 @@ def test_get_nodes_parametrized(
     expected_node_ids: List[str],
 ) -> None:
     """Test get_nodes method with various combinations of node_ids and filters."""
-    pg.add(node_embeddings)
-    nodes = pg.get_nodes(node_ids=node_ids, filters=filters)
+    pg.add(node_embeddings, index_id="42")
+    nodes = pg.get_nodes(node_ids=node_ids, filters=filters, index_id="42")
     retrieved_ids = [node.node_id for node in nodes]
     assert set(retrieved_ids) == set(expected_node_ids)
     assert len(retrieved_ids) == len(expected_node_ids)

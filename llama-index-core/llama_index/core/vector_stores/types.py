@@ -333,10 +333,14 @@ class BasePydanticVectorStore(BaseComponent, ABC):
     def client(self) -> Any:
         """Get client."""
 
+    def move_nodes(self, from_index_id: str, to_index_id: str):
+        raise NotImplementedError("Not implemented yet")
+
     def get_nodes(
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
     ) -> List[BaseNode]:
         """Get nodes from vector store."""
         raise NotImplementedError("get_nodes not implemented")
@@ -345,14 +349,16 @@ class BasePydanticVectorStore(BaseComponent, ABC):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
     ) -> List[BaseNode]:
         """Asynchronously get nodes from vector store."""
-        return self.get_nodes(node_ids, filters)
+        return self.get_nodes(node_ids, filters, index_id)
 
     @abstractmethod
     def add(
         self,
         nodes: Sequence[BaseNode],
+        index_id: Optional[str] = None,
         **kwargs: Any,
     ) -> List[str]:
         """Add nodes to vector store."""
@@ -360,6 +366,7 @@ class BasePydanticVectorStore(BaseComponent, ABC):
     async def async_add(
         self,
         nodes: Sequence[BaseNode],
+        index_id: Optional[str] = None,
         **kwargs: Any,
     ) -> List[str]:
         """
@@ -367,7 +374,7 @@ class BasePydanticVectorStore(BaseComponent, ABC):
         NOTE: this is not implemented for all vector stores. If not implemented,
         it will just call add synchronously.
         """
-        return self.add(nodes, **kwargs)
+        return self.add(nodes, index_id, **kwargs)
 
     @abstractmethod
     def delete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
@@ -386,6 +393,7 @@ class BasePydanticVectorStore(BaseComponent, ABC):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         **delete_kwargs: Any,
     ) -> None:
         """Delete nodes from vector store."""
@@ -395,32 +403,33 @@ class BasePydanticVectorStore(BaseComponent, ABC):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         **delete_kwargs: Any,
     ) -> None:
         """Asynchronously delete nodes from vector store."""
-        self.delete_nodes(node_ids, filters)
+        self.delete_nodes(node_ids, filters, index_id)
 
-    def clear(self) -> None:
+    def clear(self, index_id: Optional[str] = None) -> None:
         """Clear all nodes from configured vector store."""
         raise NotImplementedError("clear not implemented")
 
-    async def aclear(self) -> None:
+    async def aclear(self, index_id: Optional[str] = None) -> None:
         """Asynchronously clear all nodes from configured vector store."""
-        self.clear()
+        self.clear(index_id=index_id)
 
     @abstractmethod
-    def query(self, query: VectorStoreQuery, **kwargs: Any) -> VectorStoreQueryResult:
+    def query(self, query: VectorStoreQuery, index_id: Optional[str] = None, **kwargs: Any) -> VectorStoreQueryResult:
         """Query vector store."""
 
     async def aquery(
-        self, query: VectorStoreQuery, **kwargs: Any
+        self, query: VectorStoreQuery, index_id: Optional[str] = None, **kwargs: Any
     ) -> VectorStoreQueryResult:
         """
         Asynchronously query vector store.
         NOTE: this is not implemented for all vector stores. If not implemented,
         it will just call query synchronously.
         """
-        return self.query(query, **kwargs)
+        return self.query(query, index_id, **kwargs)
 
     def persist(
         self, persist_path: str, fs: Optional[fsspec.AbstractFileSystem] = None

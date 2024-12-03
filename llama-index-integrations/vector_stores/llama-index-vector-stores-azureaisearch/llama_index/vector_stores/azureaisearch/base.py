@@ -294,6 +294,12 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
                 filterable=True,
                 hidden=self._field_mapping["id"] in self._hidden_field_keys,
             ),
+            SimpleField(
+                name=self._field_mapping["index_id"],
+                type="Edm.String",
+                filterable=True,
+                hidden=self._field_mapping["index_id"] in self._hidden_field_keys,
+            ),
             SearchableField(
                 name=self._field_mapping["chunk"],
                 type="Edm.String",
@@ -741,6 +747,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         # Default field mapping
         field_mapping = {
             "id": id_field_key,
+            "index_id": "index_id",
             "chunk": chunk_field_key,
             "embedding": embedding_field_key,
             "metadata": metadata_string_field_key,
@@ -796,9 +803,17 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
 
         return index_doc
 
+    def move_nodes(self, from_index_id: str, to_index_id: str):
+        nodes = self.get_nodes(index_id=from_index_id)
+        updates = [
+            {"id": n.id_, "index_id": to_index_id} for n in nodes
+        ]
+        self._search_client.merge_documents(updates)
+
     def add(
         self,
         nodes: List[BaseNode],
+        index_id: Optional[str] = None,
         **add_kwargs: Any,
     ) -> List[str]:
         """
@@ -825,7 +840,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
             logger.debug(f"Processing embedding: {node.node_id}")
             ids.append(node.node_id)
 
-            index_document = self._create_index_document(node)
+            index_document = self._create_index_document(node, index_id)
             document_size = len(json.dumps(index_document).encode("utf-8"))
             documents.append(index_document)
             accumulated_size += document_size
@@ -857,6 +872,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
     async def async_add(
         self,
         nodes: List[BaseNode],
+        index_id: Optional[str] = None,
         **add_kwargs: Any,
     ) -> List[str]:
         """
@@ -891,7 +907,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
             logger.debug(f"Processing embedding: {node.node_id}")
             ids.append(node.node_id)
 
-            index_document = self._create_index_document(node)
+            index_document = self._create_index_document(node, index_id)
             document_size = len(json.dumps(index_document).encode("utf-8"))
             documents.append(index_document)
             accumulated_size += document_size
@@ -920,10 +936,11 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
 
         return ids
 
-    def _create_index_document(self, node: BaseNode) -> Dict[str, Any]:
+    def _create_index_document(self, node: BaseNode, index_id: str) -> Dict[str, Any]:
         """Create AI Search index document from embedding result."""
         doc: Dict[str, Any] = {}
         doc["id"] = node.node_id
+        doc["index_id"] = index_id
         doc["chunk"] = node.get_content(metadata_mode=MetadataMode.NONE) or ""
         doc["embedding"] = node.get_embedding()
         doc["doc_id"] = node.ref_doc_id
@@ -1004,6 +1021,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         **delete_kwargs: Any,
     ) -> None:
         """
@@ -1012,7 +1030,10 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         if node_ids is None and filters is None:
             raise ValueError("Either node_ids or filters must be provided")
 
-        filter = self._build_filter_delete_query(node_ids, filters)
+        user_filter = self._build_filter_delete_query(node_ids, filters)
+        filter = f'({self._field_mapping["index_id"]} eq \'{index_id}\')'
+        if user_filter:
+            filter += f' and ({user_filter})'
 
         batch_size = 1000
 
@@ -1038,6 +1059,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
     async def adelete_nodes(
         self,
         node_ids: Optional[List[str]] = None,
+        index_id: Optional[str] = None,
         filters: Optional[MetadataFilters] = None,
         **delete_kwargs: Any,
     ) -> None:
@@ -1047,7 +1069,10 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         if node_ids is None and filters is None:
             raise ValueError("Either node_ids or filters must be provided")
 
-        filter = self._build_filter_delete_query(node_ids, filters)
+        user_filter = self._build_filter_delete_query(node_ids, filters)
+        filter = f'({self._field_mapping["index_id"]} eq \'{index_id}\')'
+        if user_filter:
+            filter += f' and ({user_filter})'
 
         batch_size = 1000
 
@@ -1155,10 +1180,11 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
 
         return odata_expr
 
-    def query(self, query: VectorStoreQuery, **kwargs: Any) -> VectorStoreQueryResult:
-        odata_filter = None
+    def query(self, query: VectorStoreQuery, index_id: Optional[str] = None, **kwargs: Any) -> VectorStoreQueryResult:
+        odata_filter = f'{self._field_mapping["index_id"]} eq \'{index_id}\''
         if query.filters is not None:
-            odata_filter = self._create_odata_filter(query.filters)
+            odata_filter = f'({odata_filter}) and ({self._create_odata_filter(query.filters)})'
+
         azure_query_result_search: AzureQueryResultSearchBase = (
             AzureQueryResultSearchDefault(
                 query, self._field_mapping, odata_filter, self._search_client
@@ -1179,17 +1205,17 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         return azure_query_result_search.search()
 
     async def aquery(
-        self, query: VectorStoreQuery, **kwargs: Any
+        self, query: VectorStoreQuery, index_id: Optional[str] = None, **kwargs: Any
     ) -> VectorStoreQueryResult:
-        odata_filter = None
+        odata_filter = f'{self._field_mapping["index_id"]} eq {index_id}'
 
         # NOTE: users can provide odata_filters directly to the query
         odata_filters = kwargs.get("odata_filters")
         if odata_filters is not None:
-            odata_filter = odata_filter
+            odata_filter = f'({odata_filter}) and ({odata_filters})'
         else:
             if query.filters is not None:
-                odata_filter = self._create_odata_filter(query.filters)
+                odata_filter = f'({odata_filter}) and ({self._create_odata_filter(query.filters)})'
 
         azure_query_result_search: AzureQueryResultSearchBase = (
             AzureQueryResultSearchDefault(
@@ -1245,6 +1271,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> List[BaseNode]:
         """Get nodes from the Azure AI Search index.
@@ -1260,7 +1287,11 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         if not self._search_client:
             raise ValueError("Search client not initialized")
 
-        filter_str = self._build_filter_str(self._field_mapping, node_ids, filters)
+        user_filter_str = self._build_filter_str(self._field_mapping, node_ids, filters)
+        if user_filter_str:
+            filter_str = f'({self._field_mapping["index_id"]} eq \'{index_id}\') and ({user_filter_str})'
+        else:
+            filter_str = f'{self._field_mapping["index_id"]} eq \'{index_id}\''
         nodes = []
         batch_size = 1000  # Azure Search batch size limit
 
@@ -1291,6 +1322,7 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> List[BaseNode]:
         """Get nodes asynchronously from the Azure AI Search index.
@@ -1306,7 +1338,8 @@ class AzureAISearchVectorStore(BasePydanticVectorStore):
         if not self._async_search_client:
             raise ValueError("Async Search client not initialized")
 
-        filter_str = self._build_filter_str(self._field_mapping, node_ids, filters)
+        user_filter_str = self._build_filter_str(self._field_mapping, node_ids, filters)
+        filter_str = f'({self._field_mapping["index_id"]} eq \'{index_id}\') and ({user_filter_str})'
         nodes = []
         batch_size = 1000  # Azure Search batch size limit
 

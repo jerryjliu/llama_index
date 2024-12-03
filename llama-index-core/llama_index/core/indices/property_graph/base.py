@@ -378,6 +378,7 @@ class PropertyGraphIndex(BaseIndex[IndexLPG]):
             ):
                 sub_retrievers.append(
                     VectorContextRetriever(
+                        index_id=self.index_id,
                         graph_store=self.property_graph_store,
                         vector_store=self.vector_store,
                         include_text=include_text,

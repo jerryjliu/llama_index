@@ -113,7 +113,7 @@ def test_azureaisearch_add_two_batches() -> None:
         vector_store = create_mock_vector_store(search_client)
 
         nodes = create_sample_documents(11)
-        ids = vector_store.add(nodes)
+        ids = vector_store.add(nodes, index_id="42")
 
         call_count = index_documents_batch_instance.add_upload_actions.call_count
 
@@ -134,7 +134,7 @@ def test_azureaisearch_add_one_batch() -> None:
         vector_store = create_mock_vector_store(search_client)
 
         nodes = create_sample_documents(11)
-        ids = vector_store.add(nodes)
+        ids = vector_store.add(nodes, index_id="42")
 
         call_count = index_documents_batch_instance.add_upload_actions.call_count
 
@@ -203,6 +203,7 @@ def test_azureaisearch_query() -> None:
     mock_search_results = [
         {
             "id": "test_id_1",
+            "index_id": "42",
             "chunk": "test chunk 1",
             "content": "test chunk 1",
             "metadata": json.dumps({"key": "value1"}),
@@ -211,6 +212,7 @@ def test_azureaisearch_query() -> None:
         },
         {
             "id": "test_id_2",
+            "index_id": "42",
             "chunk": "test chunk 2",
             "content": "test chunk 2",
             "metadata": json.dumps({"key": "value2"}),
@@ -230,7 +232,7 @@ def test_azureaisearch_query() -> None:
     )
 
     # Execute the query
-    result = vector_store.query(query)
+    result = vector_store.query(query, index_id="42")
 
     # Assert the search method was called with correct parameters
     search_client.search.assert_called_once_with(
@@ -242,7 +244,7 @@ def test_azureaisearch_query() -> None:
         ],
         top=2,
         select=["id", "content", "metadata", "doc_id"],
-        filter=None,
+        filter="index_id eq '42'"
     )
 
     # Assert the result structure

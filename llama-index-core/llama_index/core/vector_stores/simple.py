@@ -240,6 +240,7 @@ class SimpleVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
     ) -> List[BaseNode]:
         """Get nodes."""
         raise NotImplementedError("SimpleVectorStore does not store nodes directly.")
@@ -247,7 +248,8 @@ class SimpleVectorStore(BasePydanticVectorStore):
     def add(
         self,
         nodes: Sequence[BaseNode],
-        **add_kwargs: Any,
+        index_id: Optional[str] = None,
+        **kwargs: Any,
     ) -> List[str]:
         """Add nodes to index."""
         for node in nodes:
@@ -287,6 +289,7 @@ class SimpleVectorStore(BasePydanticVectorStore):
         self,
         node_ids: Optional[List[str]] = None,
         filters: Optional[MetadataFilters] = None,
+        index_id: Optional[str] = None,
         **delete_kwargs: Any,
     ) -> None:
         filter_fn = _build_metadata_filter_fn(
@@ -310,13 +313,14 @@ class SimpleVectorStore(BasePydanticVectorStore):
                 del self.data.text_id_to_ref_doc_id[node_id]
                 self.data.metadata_dict.pop(node_id, None)
 
-    def clear(self) -> None:
+    def clear(self, index_id: Optional[str] = None) -> None:
         """Clear the store."""
         self.data = SimpleVectorStoreData()
 
     def query(
         self,
         query: VectorStoreQuery,
+        index_id: Optional[str] = None,
         **kwargs: Any,
     ) -> VectorStoreQueryResult:
         """Get nodes for response."""

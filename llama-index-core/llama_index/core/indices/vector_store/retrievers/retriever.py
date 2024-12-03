@@ -177,7 +177,7 @@ class VectorIndexRetriever(BaseRetriever):
         self, query_bundle_with_embeddings: QueryBundle
     ) -> List[NodeWithScore]:
         query = self._build_vector_store_query(query_bundle_with_embeddings)
-        query_result = self._vector_store.query(query, **self._kwargs)
+        query_result = self._vector_store.query(query, index_id=self._index.index_id, **self._kwargs)
         return self._build_node_list_from_query_result(query_result)
 
     async def _aget_nodes_with_embeddings(

@@ -149,14 +149,14 @@ async def test_add_to_chromadb_and_query(
     use_async: bool,
 ) -> None:
     if use_async:
-        await vector_store.async_add(node_embeddings)
+        await vector_store.async_add(node_embeddings, index_id="42")
         res = await vector_store.aquery(
-            VectorStoreQuery(query_embedding=[1.0, 0.0, 0.0], similarity_top_k=1)
+            VectorStoreQuery(query_embedding=[1.0, 0.0, 0.0], similarity_top_k=1), index_id="42"
         )
     else:
-        vector_store.add(node_embeddings)
+        vector_store.add(node_embeddings, index_id="42")
         res = vector_store.query(
-            VectorStoreQuery(query_embedding=[1.0, 0.0, 0.0], similarity_top_k=1)
+            VectorStoreQuery(query_embedding=[1.0, 0.0, 0.0], similarity_top_k=1), index_id="42"
         )
     assert res.nodes
     assert res.nodes[0].get_content() == "lorem ipsum"
@@ -179,13 +179,14 @@ async def test_add_to_chromadb_and_query_by_metafilters_only(
     )
 
     if use_async:
-        await vector_store.async_add(node_embeddings)
+        await vector_store.async_add(node_embeddings, index_id="42")
         res = await vector_store.aquery(
-            VectorStoreQuery(filters=filters, similarity_top_k=1)
+            VectorStoreQuery(filters=filters, similarity_top_k=1),
+            index_id="42"
         )
     else:
-        vector_store.add(node_embeddings)
-        res = vector_store.query(VectorStoreQuery(filters=filters, similarity_top_k=1))
+        vector_store.add(node_embeddings, index_id="42")
+        res = vector_store.query(VectorStoreQuery(filters=filters, similarity_top_k=1), index_id="42")
 
     assert (
         res.nodes[0].get_content()
@@ -196,13 +197,14 @@ async def test_add_to_chromadb_and_query_by_metafilters_only(
 def test_get_nodes(
     vector_store: ChromaVectorStore, node_embeddings: List[TextNode]
 ) -> None:
-    vector_store.add(node_embeddings)
+    vector_store.add(node_embeddings, index_id="42")
     res = vector_store.get_nodes(
         node_ids=[
             "c330d77f-90bd-4c51-9ed2-57d8d693b3b0",
             "c3d1e1dd-8fb4-4b8f-b7ea-7fa96038d39d",
             "c3ew11cd-8fb4-4b8f-b7ea-7fa96038d39d",
-        ]
+        ],
+        index_id="42"
     )
     assert len(res) == 3
     assert res[0].get_content() == "lorem ipsum"
@@ -213,19 +215,21 @@ def test_get_nodes(
 def test_delete_nodes(
     vector_store: ChromaVectorStore, node_embeddings: List[TextNode]
 ) -> None:
-    vector_store.add(node_embeddings)
+    vector_store.add(node_embeddings, index_id="42")
     vector_store.delete_nodes(
         node_ids=[
             "c330d77f-90bd-4c51-9ed2-57d8d693b3b0",
             "c3d1e1dd-8fb4-4b8f-b7ea-7fa96038d39d",
-        ]
+        ],
+        index_id="42"
     )
     res = vector_store.get_nodes(
         node_ids=[
             "c330d77f-90bd-4c51-9ed2-57d8d693b3b0",
             "c3d1e1dd-8fb4-4b8f-b7ea-7fa96038d39d",
             "c3ew11cd-8fb4-4b8f-b7ea-7fa96038d39d",
-        ]
+        ],
+        index_id = "42"
     )
     assert len(res) == 1
     assert res[0].get_content() == "lorem ipsum"
@@ -235,13 +239,14 @@ def test_delete_nodes(
 def test_clear(
     vector_store: ChromaVectorStore, node_embeddings: List[TextNode]
 ) -> None:
-    vector_store.add(node_embeddings)
-    vector_store.clear()
+    vector_store.add(node_embeddings, index_id="42")
+    vector_store.clear(index_id="42")
     res = vector_store.get_nodes(
         node_ids=[
             "c330d77f-90bd-4c51-9ed2-57d8d693b3b0",
             "c3d1e1dd-8fb4-4b8f-b7ea-7fa96038d39d",
             "c3ew11cd-8fb4-4b8f-b7ea-7fa96038d39d",
-        ]
+        ],
+        index_id="42"
     )
     assert len(res) == 0
