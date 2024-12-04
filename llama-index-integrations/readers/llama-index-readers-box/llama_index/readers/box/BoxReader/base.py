@@ -1,16 +1,21 @@
 import logging
 import tempfile
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 from pathlib import Path
 from abc import abstractmethod
 
-from llama_index.core.readers import SimpleDirectoryReader, FileSystemReaderMixin
+from typing_extensions import Unpack
+
+from llama_index.core.readers import (
+    SimpleDirectoryReader,
+    FileSystemReaderMixin,
+    DirectoryReaderArgs,
+)
 from llama_index.core.readers.base import (
     BaseReader,
     ResourcesReaderMixin,
 )
 from llama_index.core.schema import Document
-from llama_index.core.bridge.pydantic import Field
 
 from llama_index.readers.box.BoxAPI.box_api import (
     add_extra_header_to_box_client,
@@ -47,7 +52,9 @@ class BoxReaderBase(BaseReader, ResourcesReaderMixin, FileSystemReaderMixin):
     def __init__(
         self,
         box_client: BoxClient,
+        **kwargs: Unpack[DirectoryReaderArgs],
     ):
+        super().__init__(**kwargs)
         self._box_client = add_extra_header_to_box_client(box_client)
 
     @abstractmethod
@@ -266,23 +273,15 @@ class BoxReader(BoxReaderBase):
     Attributes:
         _box_client (BoxClient): An authenticated Box client object used
             for interacting with the Box API.
-        file_extractor (Optional[Dict[str, Union[str, BaseReader]]], optional):
-            A dictionary mapping file extensions or mimetypes to either a string
-            specifying a custom extractor function or another BaseReader subclass
-            for handling specific file formats. Defaults to None.
+        **kwargs: Additional keyword arguments passed to SimpleDirectoryReader.
     """
-
-    file_extractor: Optional[Dict[str, Union[str, BaseReader]]] = Field(
-        default=None, exclude=True
-    )
 
     def __init__(
         self,
         box_client: BoxClient,
-        file_extractor: Optional[Dict[str, Union[str, BaseReader]]] = None,
+        **kwargs: Unpack[DirectoryReaderArgs],
     ):
-        super().__init__(box_client=box_client)
-        self.file_extractor = file_extractor
+        super().__init__(box_client=box_client, **kwargs)
 
     def load_data(
         self,
@@ -345,7 +344,7 @@ class BoxReader(BoxReaderBase):
             simple_loader = SimpleDirectoryReader(
                 input_dir=temp_dir,
                 file_metadata=get_metadata,
-                file_extractor=self.file_extractor,
+                **self.model_dump(),
             )
             return simple_loader.load_data()
 

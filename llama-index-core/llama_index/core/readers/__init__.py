@@ -18,11 +18,17 @@ from llama_index.core.readers.download import download_loader
 from llama_index.core.readers.file.base import (
     SimpleDirectoryReader,
     FileSystemReaderMixin,
+    DirectoryReaderArgs,
+    LoadFileArgs,
+    BaseDirectoryReaderArgs,
 )
 from llama_index.core.readers.string_iterable import StringIterableReader
 from llama_index.core.schema import Document
 
 __all__ = [
+    "DirectoryReaderArgs",
+    "LoadFileArgs",
+    "BaseDirectoryReaderArgs",
     "SimpleDirectoryReader",
     "FileSystemReaderMixin",
     "ReaderConfig",

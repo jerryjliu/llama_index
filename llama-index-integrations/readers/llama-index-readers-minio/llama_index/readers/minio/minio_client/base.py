@@ -8,12 +8,14 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from llama_index.core.readers import SimpleDirectoryReader
-from llama_index.core.readers.base import BaseReader
+from typing_extensions import Unpack
+
+from llama_index.core.readers import SimpleDirectoryReader, DirectoryReaderArgs
+from llama_index.core.readers.base import BaseReader, BasePydanticReader
 from llama_index.core.schema import Document
 
 
-class MinioReader(BaseReader):
+class MinioReader(BaseReader, BasePydanticReader):
     """General reader for any Minio file or directory."""
 
     def __init__(
@@ -33,7 +35,7 @@ class MinioReader(BaseReader):
         minio_access_key: Optional[str] = None,
         minio_secret_key: Optional[str] = None,
         minio_session_token: Optional[str] = None,
-        **kwargs: Any,
+        **kwargs: Unpack[DirectoryReaderArgs],
     ) -> None:
         """Initialize Minio bucket and key, along with credentials if needed.
 
@@ -45,11 +47,6 @@ class MinioReader(BaseReader):
             this loader will iterate through the entire bucket.
         prefix (Optional[str]): the prefix to filter by in the case that the loader
             iterates through the entire bucket. Defaults to empty string.
-        file_extractor (Optional[Dict[str, BaseReader]]): A mapping of file
-            extension to a BaseReader class that specifies how to convert that file
-            to text. See `SimpleDirectoryReader` for more details.
-        required_exts (Optional[List[str]]): List of required extensions.
-            Default is None.
         num_files_limit (Optional[int]): Maximum number of files to read.
             Default is None.
         file_metadata (Optional[Callable[str, Dict]]): A function that takes
@@ -62,6 +59,7 @@ class MinioReader(BaseReader):
         minio_session_token (Optional[str]): The Minio session token.
         minio_secure: MinIO server runs in TLS mode
         minio_cert_check: allows the usage of a self-signed cert for MinIO server
+        **kwargs: Additional arguments to pass to the simple directory reader.
         """
         super().__init__(*args, **kwargs)
 

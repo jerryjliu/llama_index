@@ -10,17 +10,15 @@ import os
 from pathlib import Path
 import tempfile
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from azure.storage.blob import ContainerClient
 
-from llama_index.core.bridge.pydantic import Field
 from llama_index.core.readers import SimpleDirectoryReader
-from llama_index.core.readers.base import BaseReader, BasePydanticReader
+from llama_index.core.readers.base import BasePydanticReader
 from llama_index.core.schema import Document
 from llama_index.core.readers import SimpleDirectoryReader, FileSystemReaderMixin
 from llama_index.core.readers.base import (
-    BaseReader,
     BasePydanticReader,
     ResourcesReaderMixin,
 )
@@ -45,14 +43,12 @@ class AzStorageBlobReader(
             'metadata', 'uncommittedblobs', 'copy', 'deleted',
             'deletedwithversions', 'tags', 'versions', 'immutabilitypolicy',
             'legalhold'.
-        file_extractor (Optional[Dict[str, Union[str, BaseReader]]]): A mapping of file
-            extension to a BaseReader class that specifies how to convert that file
-            to text. See `SimpleDirectoryReader` for more details, or call this path ```llama_index.readers.file.base.DEFAULT_FILE_READER_CLS```.
         connection_string (str): A connection string which can be found under a storage account's "Access keys" security tab. This parameter
         can be used in place of both the account URL and credential.
         account_url (str): URI to the storage account, may include SAS token.
         credential (Union[str, Dict[str, str], AzureNamedKeyCredential, AzureSasCredential, TokenCredential, None] = None):
             The credentials with which to authenticate. This is optional if the account URL already has a SAS token.
+        **kwargs: (DirectoryReaderArgs): Additional arguments to pass to the directory reader.
     """
 
     container_name: str
@@ -60,9 +56,6 @@ class AzStorageBlobReader(
     blob: Optional[str] = None
     name_starts_with: Optional[str] = None
     include: Optional[Any] = None
-    file_extractor: Optional[Dict[str, Union[str, BaseReader]]] = Field(
-        default=None, exclude=True
-    )
     connection_string: Optional[str] = None
     account_url: Optional[str] = None
     credential: Optional[Any] = None
@@ -152,7 +145,7 @@ class AzStorageBlobReader(
             return files_metadata.get(file_name, {})
 
         loader = SimpleDirectoryReader(
-            temp_dir, file_extractor=self.file_extractor, file_metadata=get_metadata
+            temp_dir, file_metadata=get_metadata, **self.model_dump()
         )
 
         return loader.load_data()

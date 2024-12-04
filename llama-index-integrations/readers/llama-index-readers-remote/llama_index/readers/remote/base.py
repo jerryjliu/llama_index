@@ -6,27 +6,27 @@ A loader that fetches an arbitrary remote page or file by URL and parses its con
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List
+
+from typing_extensions import Unpack
 
 from llama_index.core import SimpleDirectoryReader
-from llama_index.core.readers.base import BaseReader
+from llama_index.core.readers import DirectoryReaderArgs
+from llama_index.core.readers.base import BaseReader, BasePydanticReader
 from llama_index.core.schema import Document
 from llama_index.readers.youtube_transcript import YoutubeTranscriptReader
 
 
-class RemoteReader(BaseReader):
+class RemoteReader(BasePydanticReader, BaseReader):
     """General reader for any remote page or file."""
 
     def __init__(
         self,
         *args: Any,
-        file_extractor: Optional[Dict[str, Union[str, BaseReader]]] = None,
-        **kwargs: Any,
+        **kwargs: Unpack[DirectoryReaderArgs],
     ) -> None:
         """Init params."""
         super().__init__(*args, **kwargs)
-
-        self.file_extractor = file_extractor
 
     @staticmethod
     def _is_youtube_video(url: str) -> bool:
@@ -93,7 +93,7 @@ class RemoteReader(BaseReader):
                 loader = SimpleDirectoryReader(
                     temp_dir,
                     file_metadata=(lambda _: extra_info),
-                    file_extractor=self.file_extractor,
+                    **self.model_dump(),
                 )
                 documents = loader.load_data()
         return documents
