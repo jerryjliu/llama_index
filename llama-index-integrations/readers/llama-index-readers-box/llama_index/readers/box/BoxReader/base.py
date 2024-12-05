@@ -133,8 +133,8 @@ class BoxReaderBase(BaseReader, ResourcesReaderMixin, FileSystemReaderMixin):
             )
         return [file.id for file in box_files]
 
-    def read_file_content(self, input_file: Path, **kwargs) -> bytes:
-        file_id = input_file.name
+    def read_file_content(self, resource_id: str, **kwargs) -> bytes:
+        file_id = Path(resource_id).name
         return get_file_content_by_id(box_client=self._box_client, box_file_id=file_id)
 
     def search_resources(
@@ -378,3 +378,12 @@ class BoxReader(BoxReaderBase):
             file.downloaded_file_path = local_path
             box_files_with_path.append(file)
         return box_files_with_path
+
+    def get_file_name(self, resource_id: str) -> str:
+        box_file = get_box_files_details(
+            box_client=self._box_client, file_ids=[resource_id]
+        )
+        return box_file[0].name
+
+    def get_file_path(self, resource_id: str) -> str:
+        return self.get_file_name(resource_id)

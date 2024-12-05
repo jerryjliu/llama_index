@@ -202,10 +202,10 @@ class AzStorageBlobReader(
             )
             raise
 
-    def read_file_content(self, input_file: Path, **kwargs) -> bytes:
+    def read_file_content(self, resource_id: str, **kwargs: Any) -> bytes:
         """Read the content of a file from Azure Storage Blob."""
         container_client = self._get_container_client()
-        blob_client = container_client.get_blob_client(input_file)
+        blob_client = container_client.get_blob_client(resource_id)
         stream = blob_client.download_blob()
         return stream.readall()
 
@@ -230,3 +230,9 @@ class AzStorageBlobReader(
             logger.info("Document creation starting")
 
             return self._load_documents_with_metadata(files_metadata, temp_dir)
+
+    def get_file_name(self, resource_id: str) -> str:
+        return Path(resource_id).name
+
+    def get_file_path(self, resource_id: str) -> str:
+        return resource_id

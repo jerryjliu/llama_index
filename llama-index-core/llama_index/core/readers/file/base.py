@@ -23,28 +23,52 @@ from tqdm import tqdm
 
 class FileSystemReaderMixin(ABC):
     @abstractmethod
-    def read_file_content(self, input_file: Path, **kwargs: Any) -> bytes:
+    def read_file_content(self, resource_id: str, **kwargs: Any) -> bytes:
         """
         Read the bytes content of a file.
 
         Args:
-            input_file (Path): Path to the file.
+            resource_id (str): Resource ID.
 
         Returns:
             bytes: File content.
         """
 
-    async def aread_file_content(self, input_file: Path, **kwargs: Any) -> bytes:
+    async def aread_file_content(self, resource_id: str, **kwargs: Any) -> bytes:
         """
         Read the bytes content of a file asynchronously.
 
         Args:
-            input_file (Path): Path to the file.
+            resource_id (str): Resource ID.
 
         Returns:
             bytes: File content.
         """
-        return self.read_file_content(input_file, **kwargs)
+        return self.read_file_content(resource_id, **kwargs)
+
+    @abstractmethod
+    def get_file_name(self, resource_id: str) -> str:
+        """
+        Get the file name from the resource ID.
+        """
+
+    async def aget_file_name(self, resource_id: str) -> str:
+        """
+        Get the file name from the resource ID asynchronously.
+        """
+        return self.get_file_name(resource_id)
+
+    @abstractmethod
+    def get_file_path(self, resource_id: str) -> str:
+        """
+        Get the file path from the resource ID.
+        """
+
+    async def aget_file_path(self, resource_id: str) -> str:
+        """
+        Get the file path from the resource ID asynchronously.
+        """
+        return self.get_file_path(resource_id)
 
 
 def _try_loading_included_file_formats() -> Dict[str, Type[BaseReader]]:
@@ -465,10 +489,12 @@ class SimpleDirectoryReader(BaseReader, ResourcesReaderMixin, FileSystemReaderMi
             **kwargs,
         )
 
-    def read_file_content(self, input_file: Path, **kwargs: Any) -> bytes:
+    def read_file_content(self, resource_id: str, **kwargs: Any) -> bytes:
         """Read file content."""
         fs: fsspec.AbstractFileSystem = kwargs.get("fs", self.fs)
-        with fs.open(input_file, errors=self.errors, encoding=self.encoding) as f:
+        with fs.open(
+            Path(resource_id), errors=self.errors, encoding=self.encoding
+        ) as f:
             return f.read()
 
     @staticmethod
@@ -792,3 +818,9 @@ class SimpleDirectoryReader(BaseReader, ResourcesReaderMixin, FileSystemReaderMi
 
             if len(documents) > 0:
                 yield documents
+
+    def get_file_name(self, resource_id: str) -> str:
+        return Path(resource_id).name
+
+    def get_file_path(self, resource_id: str) -> str:
+        return resource_id
