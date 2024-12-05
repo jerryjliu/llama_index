@@ -6,8 +6,6 @@ from llama_index.core.readers.base import BaseReader
 from llama_index.readers.microsoft_sharepoint import SharePointReader
 
 from unittest.mock import patch, MagicMock
-from pathlib import Path
-
 
 test_client_id = "test_client_id"
 test_client_secret = "test_client_secret"
@@ -159,8 +157,8 @@ def test_list_resources(sharepoint_reader):
         recursive=False,
     )
     assert len(file_paths) == 2
-    assert file_paths[0] == Path("dummy_site_name/dummy_folder_path/file1.txt")
-    assert file_paths[1] == Path("dummy_site_name/dummy_folder_path/file2.txt")
+    assert file_paths[0] == "dummy_site_name/dummy_folder_path/file1.txt"
+    assert file_paths[1] == "dummy_site_name/dummy_folder_path/file2.txt"
 
 
 def test_load_documents_with_metadata(sharepoint_reader):

@@ -210,6 +210,6 @@ class S3Reader(BasePydanticReader, ResourcesReaderMixin, FileSystemReaderMixin):
         docs = simple_directory_reader.load_resource(resource_id, **kwargs)
         return self._adjust_documents(docs)
 
-    def read_file_content(self, input_file: Path, **kwargs) -> bytes:
+    def read_file_content(self, resource_id: str, **kwargs) -> bytes:
         simple_directory_reader = self._get_simple_directory_reader()
-        return simple_directory_reader.read_file_content(input_file, **kwargs)
+        return simple_directory_reader.read_file_content(Path(resource_id), **kwargs)

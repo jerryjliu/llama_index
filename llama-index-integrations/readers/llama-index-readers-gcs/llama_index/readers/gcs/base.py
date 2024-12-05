@@ -251,12 +251,12 @@ class GCSReader(BasePydanticReader, ResourcesReaderMixin, FileSystemReaderMixin)
             logger.error(f"Error loading resource from GCS: {e!s}")
             raise
 
-    def read_file_content(self, input_file: Path, **kwargs) -> bytes:
+    def read_file_content(self, resource_id: str, **kwargs) -> bytes:
         """
         Read the content of a specific file from GCS.
 
         Args:
-            input_file (Path): The path to the file to read.
+            resource_id (str): The resource ID to read.
             **kwargs: Additional arguments to pass to the underlying read_file_content method.
 
         Returns:
@@ -266,9 +266,9 @@ class GCSReader(BasePydanticReader, ResourcesReaderMixin, FileSystemReaderMixin)
             Exception: If there's an error reading the file content.
         """
         try:
-            logger.info(f"Reading file content: {input_file}")
+            logger.info(f"Reading file content: {resource_id}")
             return self._get_simple_directory_reader().read_file_content(
-                input_file, **kwargs
+                Path(resource_id), **kwargs
             )
         except Exception as e:
             logger.error(f"Error reading file content from GCS: {e!s}")

@@ -7,7 +7,6 @@ A loader that fetches a file or iterates through a directory from Azure Storage 
 import logging
 import math
 import os
-from pathlib import Path
 import tempfile
 import time
 from typing import Any, Dict, List, Optional, Union
@@ -202,10 +201,10 @@ class AzStorageBlobReader(
             )
             raise
 
-    def read_file_content(self, input_file: Path, **kwargs) -> bytes:
+    def read_file_content(self, resource_id: str, **kwargs: Any) -> bytes:
         """Read the content of a file from Azure Storage Blob."""
         container_client = self._get_container_client()
-        blob_client = container_client.get_blob_client(input_file)
+        blob_client = container_client.get_blob_client(resource_id)
         stream = blob_client.download_blob()
         return stream.readall()
 
