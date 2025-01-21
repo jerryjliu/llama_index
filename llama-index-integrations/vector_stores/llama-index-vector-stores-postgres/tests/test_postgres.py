@@ -337,8 +337,17 @@ async def test_query_hnsw(
 @pytest.mark.skipif(postgres_not_available, reason="postgres db is not available")
 @pytest.mark.asyncio()
 @pytest.mark.parametrize("use_async", [True, False])
+@pytest.mark.parametrize(
+    "mode",
+    [
+        VectorStoreQueryMode.DEFAULT,
+        VectorStoreQueryMode.SPARSE,
+        VectorStoreQueryMode.HYBRID,
+        VectorStoreQueryMode.TEXT_SEARCH,
+    ],
+)
 async def test_add_to_db_and_query_with_metadata_filters(
-    pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool
+    pg: PGVectorStore, node_embeddings: List[TextNode], use_async: bool, mode: str
 ) -> None:
     if use_async:
         await pg.async_add(node_embeddings)
@@ -350,7 +359,10 @@ async def test_add_to_db_and_query_with_metadata_filters(
         filters=[ExactMatchFilter(key="test_key", value="test_value")]
     )
     q = VectorStoreQuery(
-        query_embedding=_get_sample_vector(0.5), similarity_top_k=10, filters=filters
+        query_embedding=_get_sample_vector(0.5),
+        similarity_top_k=10,
+        filters=filters,
+        mode=mode,
     )
     if use_async:
         res = await pg.aquery(q)
