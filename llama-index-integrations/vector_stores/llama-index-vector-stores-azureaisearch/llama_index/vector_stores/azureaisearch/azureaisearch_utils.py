@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_node_from_result(
-    result: Dict[str, Any], field_mapping: Dict[str, str]
+    result: Dict[str, Any],
+    field_mapping: Dict[str, str],
 ) -> BaseNode:
     """Create a node from a search result.
 
@@ -22,28 +23,52 @@ def create_node_from_result(
     Returns:
         BaseNode: Created node
     """
-    metadata_str = result[field_mapping["metadata"]]
-    metadata = json.loads(metadata_str) if metadata_str else {}
+    node_id = result[field_mapping["id"]]
+    chunk = result[field_mapping["chunk"]]
+
+    # Try LlamaIndex metadata first
+    metadata = {}
+    if field_mapping["metadata"] in result:
+        metadata_str = result[field_mapping["metadata"]]
+        if metadata_str:
+            try:
+                metadata = json.loads(metadata_str)
+            except json.JSONDecodeError:
+                logger.debug(
+                    "Could not parse metadata JSON, if chunk is not empty, we'll use it anyways"
+                )
+                if len(chunk) == 0:
+                    raise json.JSONDecodeError(
+                        "Could not parse metadata JSON, and chunk is empty"
+                    )
 
     try:
+        # Try creating node using current metadata format
         node = metadata_dict_to_node(metadata)
-        node.set_content(result[field_mapping["chunk"]])
-        node.embedding = result.get(field_mapping["embedding"])
+        node.set_content(chunk)
     except Exception:
         # NOTE: deprecated legacy logic for backward compatibility
-        metadata, node_info, relationships = legacy_metadata_dict_to_node(metadata)
+        try:
+            metadata, node_info, relationships = legacy_metadata_dict_to_node(metadata)
+        except Exception:
+            # If both metadata conversions fail, assume flat metadata structure
+            node_info = {}
+            relationships = {}
 
         node = TextNode(
-            text=result[field_mapping["chunk"]],
-            id_=result[field_mapping["id"]],
+            text=chunk,
+            id_=node_id,
             metadata=metadata,
             start_char_idx=node_info.get("start", None),
             end_char_idx=node_info.get("end", None),
             relationships=relationships,
         )
-        if field_mapping.get("embedding"):
-            node.embedding = result.get(field_mapping["embedding"])
 
+    # Add embedding if available
+    if "embedding" in field_mapping:
+        node.embedding = result.get(field_mapping["embedding"])
+
+    logger.debug(f"Retrieved node id {node_id} with node data of {node}")
     return node
 
 
@@ -93,6 +118,8 @@ def create_search_request(
         filter_str (Optional[str]): OData filter string
         batch_size (int): Size of batch to retrieve
         offset (int): Number of results to skip
+        semantic_config_name (Optional[str]): Name of semantic configuration to use
+        vector_search_profile (Optional[str]): Name of vector search profile to use
 
     Returns:
         Dict[str, Any]: Search request parameters
