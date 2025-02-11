@@ -418,42 +418,57 @@ class Workflow(metaclass=WorkflowMeta):
                     return_when=asyncio.FIRST_EXCEPTION,
                 )
 
-                we_done = False
+                # Handle task completion
                 exception_raised = None
                 for task in done:
-                    e = task.exception()
-                    if type(e) == WorkflowDone:
-                        we_done = True
-                    elif e is not None:
-                        exception_raised = e
-                        break
+                    try:
+                        e = task.exception()
+                        if isinstance(e, WorkflowDone):
+                            result.set_result(ctx._retval)
+                            return
+                        elif e is not None:
+                            exception_raised = e
+                            break
+                    except asyncio.CancelledError:
+                        pass
 
-                # Cancel any pending tasks
+                # Clean up unfinished tasks
                 for t in unfinished:
                     t.cancel()
 
                 # wait for cancelled tasks to cleanup
                 await asyncio.gather(*unfinished, return_exceptions=True)
 
-                # the context is no longer running
+                # Handle errors
                 ctx.is_running = False
+                ctx.write_event_to_stream(StopEvent())
 
                 if exception_raised:
-                    # cancel the stream
-                    ctx.write_event_to_stream(StopEvent())
+                    if isinstance(
+                        exception_raised,
+                        (
+                            WorkflowTimeoutError,
+                            WorkflowRuntimeError,
+                            WorkflowCancelledByUser,
+                        ),
+                    ):
+                        result.set_exception(exception_raised)
+                    else:
+                        result.set_exception(
+                            WorkflowRuntimeError(
+                                f"Unexpected error: {exception_raised!s}"
+                            )
+                        )
+                else:
+                    result.set_exception(
+                        WorkflowTimeoutError(
+                            f"Operation timed out after {self._timeout} seconds"
+                        )
+                    )
 
-                    raise exception_raised
-
-                if not we_done:
-                    # cancel the stream
-                    ctx.write_event_to_stream(StopEvent())
-
-                    msg = f"Operation timed out after {self._timeout} seconds"
-                    raise WorkflowTimeoutError(msg)
-
-                result.set_result(ctx._retval)
             except Exception as e:
-                result.set_exception(e)
+                if not result.cancelled():
+                    result.set_exception(WorkflowRuntimeError(f"Workflow error: {e!s}"))
             finally:
                 if self._sem:
                     self._sem.release()

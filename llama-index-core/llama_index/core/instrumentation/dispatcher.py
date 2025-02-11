@@ -277,13 +277,48 @@ class Dispatcher(BaseModel):
                 instance: Any,
                 context: Context,
             ) -> None:
-                from llama_index.core.workflow.errors import WorkflowCancelledByUser
+                from llama_index.core.workflow.errors import (
+                    WorkflowCancelledByUser,
+                    WorkflowTimeoutError,
+                    WorkflowRuntimeError,
+                )
 
                 try:
+                    # Get exception first to avoid calling result() on failed future
                     exception = future.exception()
                     if exception is not None:
-                        raise exception
+                        # Handle expected workflow exceptions
+                        if isinstance(
+                            exception,
+                            (
+                                WorkflowCancelledByUser,
+                                WorkflowTimeoutError,
+                                WorkflowRuntimeError,
+                            ),
+                        ):
+                            self.span_exit(
+                                id_=span_id,
+                                bound_args=bound_args,
+                                instance=instance,
+                                result=None,
+                            )
+                            # Don't re-raise, just return None to avoid callback exception
+                            return None
 
+                        # Handle unexpected exceptions
+                        self.event(
+                            SpanDropEvent(span_id=span_id, err_str=str(exception))
+                        )
+                        self.span_drop(
+                            id_=span_id,
+                            bound_args=bound_args,
+                            instance=instance,
+                            err=exception,
+                        )
+                        # Don't re-raise, just return None to avoid callback exception
+                        return None
+
+                    # Handle successful result
                     result = future.result()
                     self.span_exit(
                         id_=span_id,
@@ -292,29 +327,21 @@ class Dispatcher(BaseModel):
                         result=result,
                     )
                     return result
-                except WorkflowCancelledByUser:
+
+                except asyncio.CancelledError:
+                    # Handle cancellation cleanly
                     self.span_exit(
                         id_=span_id,
                         bound_args=bound_args,
                         instance=instance,
                         result=None,
                     )
+                    # Don't re-raise, just return None to avoid callback exception
                     return None
-                except BaseException as e:
-                    self.event(SpanDropEvent(span_id=span_id, err_str=str(e)))
-                    self.span_drop(
-                        id_=span_id, bound_args=bound_args, instance=instance, err=e
-                    )
-                    raise
                 finally:
                     try:
                         context.run(active_span_id.reset, token)
                     except ValueError as e:
-                        # TODO: Since the context is created in a sync context no in async task,
-                        # detaching the token raises an ValueError saying "token was created
-                        # in a different Context. We should figure out how to handle active spans
-                        # correctly, but for now just suppressing the error so it won't be
-                        # surfaced to the user.
                         _logger.debug(f"Failed to reset active_span_id: {e}")
 
             try:
