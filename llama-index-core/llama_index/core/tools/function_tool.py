@@ -122,6 +122,8 @@ class FunctionTool(AsyncBaseTool):
             fn_schema: Optional[Type[BaseModel]] = None,
             async_fn: Optional[AsyncCallable] = None,
             tool_metadata: Optional[ToolMetadata] = None,
+            callback: Optional[Callable[[Any], Any]] = None,
+            async_callback: Optional[AsyncCallable] = None,
     ) -> "FunctionTool":
         if tool_metadata is None:
             tool_metadata = cls.tool_metadata_from_defaults(
@@ -136,6 +138,8 @@ class FunctionTool(AsyncBaseTool):
             fn=fn,
             metadata=tool_metadata,
             async_fn=async_fn,
+            callback=callback,
+            async_callback=async_callback,
         )
 
     @classmethod
