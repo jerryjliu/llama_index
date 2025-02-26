@@ -94,13 +94,14 @@ def llm_retry_decorator(f: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(f)
     def wrapper(self, *args: Any, **kwargs: Any) -> Any:
         max_retries = getattr(self, "max_retries", 0)
+        timeout = getattr(self, "timeout", 60.0)
         if max_retries <= 0:
             return f(self, *args, **kwargs)
 
         retry = create_retry_decorator(
             max_retries=max_retries,
             random_exponential=True,
-            stop_after_delay_seconds=60,
+            stop_after_delay_seconds=timeout,
             min_seconds=1,
             max_seconds=20,
         )
