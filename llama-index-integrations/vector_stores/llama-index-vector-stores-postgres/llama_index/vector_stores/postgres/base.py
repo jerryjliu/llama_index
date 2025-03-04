@@ -712,6 +712,28 @@ class PGVectorStore(BasePydanticVectorStore):
                 for item in res.all()
             ]
 
+    def _build_filters_query(
+        self,
+        limit: int,
+        metadata_filters: Optional[MetadataFilters] = None,
+    ) -> Any:
+        from sqlalchemy import select
+        from sqlalchemy.sql import text
+
+        stmt = (
+            select(  # type: ignore
+                self._table_class.id,
+                self._table_class.node_id,
+                self._table_class.text,
+                self._table_class.metadata_,
+                self._table_class.text_search_tsv.label("rank"),
+            )
+            .order_by(text("rank desc"))
+        )
+
+        # type: ignore
+        return self._apply_filters_and_limit(stmt, limit, metadata_filters)
+
     def _build_sparse_query(
         self,
         query_str: Optional[str],
@@ -787,6 +809,24 @@ class PGVectorStore(BasePydanticVectorStore):
         metadata_filters: Optional[MetadataFilters] = None,
     ) -> List[DBEmbeddingRow]:
         stmt = self._build_sparse_query(query_str, limit, metadata_filters)
+        with self._session() as session, session.begin():
+            res = session.execute(stmt)
+            return [
+                DBEmbeddingRow(
+                    node_id=item.node_id,
+                    text=item.text,
+                    metadata=item.metadata_,
+                    similarity=item.rank,
+                )
+                for item in res.all()
+            ]
+
+    def _query_filters_only(
+        self,
+        limit: int = 10,
+        metadata_filters: Optional[MetadataFilters] = None,
+    ) -> List[DBEmbeddingRow]:
+        stmt = self._build_filters_query(limit, metadata_filters)
         with self._session() as session, session.begin():
             res = session.execute(stmt)
             return [
@@ -880,6 +920,9 @@ class PGVectorStore(BasePydanticVectorStore):
         self._initialize()
         if query.mode == VectorStoreQueryMode.HYBRID:
             results = await self._async_hybrid_query(query, **kwargs)
+        elif query.mode == VectorStoreQueryMode.FILTERS:
+            filters_top_k = query.filters_top_k or query.similarity_top_k
+            results = self._query_filters_only(filters_top_k, query.filters)
         elif query.mode in [
             VectorStoreQueryMode.SPARSE,
             VectorStoreQueryMode.TEXT_SEARCH,
@@ -904,6 +947,9 @@ class PGVectorStore(BasePydanticVectorStore):
         self._initialize()
         if query.mode == VectorStoreQueryMode.HYBRID:
             results = self._hybrid_query(query, **kwargs)
+        elif query.mode == VectorStoreQueryMode.FILTERS:
+            filters_top_k = query.filters_top_k or query.similarity_top_k
+            results = self._query_filters_only(filters_top_k, query.filters)
         elif query.mode in [
             VectorStoreQueryMode.SPARSE,
             VectorStoreQueryMode.TEXT_SEARCH,

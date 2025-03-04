@@ -51,6 +51,9 @@ class VectorStoreQueryMode(str, Enum):
     TEXT_SEARCH = "text_search"
     SEMANTIC_HYBRID = "semantic_hybrid"
 
+    # NOTE: currently only used by postgres filters search
+    FILTERS = "filters"
+
     # fit learners
     SVM = "svm"
     LOGISTIC_REGRESSION = "logistic_regression"
@@ -257,6 +260,8 @@ class VectorStoreQuery:
     sparse_top_k: Optional[int] = None
     # NOTE: return top k results from hybrid search. similarity_top_k is used for dense search top k
     hybrid_top_k: Optional[int] = None
+    # NOTE: currently only used by postgres filters search
+    filters_top_k: Optional[int] = None
 
 
 @runtime_checkable
