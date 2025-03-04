@@ -37,6 +37,12 @@ class SentenceSplitter(MetadataAwareTextSplitter):
     In general, this class tries to keep sentences and paragraphs together. Therefore
     compared to the original TokenTextSplitter, there are less likely to be
     hanging sentences or parts of sentences at the end of the node chunk.
+
+    Due to a bug in the implementation of the logic, the text length of the last node
+    returned by SentenceSplitter may exceed the chunk_size. This can lead to various
+    unexpected errors. It is recommended to avoid this bug by taking the following
+    measures: reduce chunk_size, optimize splitting parameters, and truncate overly
+    long node text.
     """
 
     chunk_size: int = Field(
