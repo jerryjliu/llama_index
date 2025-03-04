@@ -27,13 +27,13 @@ exclude = ["**/BUILD"]
 license = "MIT"
 name = "llama-index-llms-text-generation-inference"
 readme = "README.md"
-version = "0.3.1"
+version = "0.4.0"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-text-generation = "^0.7.0"
 llama-index-utils-huggingface = "^0.3.0"
 llama-index-core = "^0.12.0"
+huggingface-hub = {extras = ["inference"], version = "^0.27.1"}
 
 [tool.poetry.group.dev.dependencies]
 ipython = "8.10.0"
