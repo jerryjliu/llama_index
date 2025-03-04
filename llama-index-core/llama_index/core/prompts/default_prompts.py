@@ -521,3 +521,357 @@ DEFAULT_JSONALYZE_PROMPT_TMPL = (
 DEFAULT_JSONALYZE_PROMPT = PromptTemplate(
     DEFAULT_JSONALYZE_PROMPT_TMPL, prompt_type=PromptType.TEXT_TO_SQL
 )
+
+###########################################
+# REBEL MetaPrompt Template
+###########################################
+
+DEFAULT_REBEL_META_PROMPT_TMPL = (
+    '''You are a prompt generator. You will receive only a user's query as input. Your task is to:
+
+Analyze the user's query and identify additional properties beyond basic relevance that would be desirable for selecting and ranking context documents. These properties should be inferred from the query's subject matter, without the user specifying them. Such properties may include:
+
+Domain appropriateness (e.g., technical accuracy, authoritative sourcing, correctness of information)
+Perspective diversity (multiple viewpoints, ideological balance, different theoretical frameworks)
+Temporal relevance (up-to-date information, recent data)
+Depth of detail and specificity (thorough coverage, multi-faceted analysis, detailed examples)
+Trustworthiness, neutrality, impartiality (reliable sources, unbiased accounts)
+Reasoning depth or conceptual complexity
+Authoritativeness (recognition of reputable experts, institutions, or high-quality sources)
+After inferring these properties from the query, produce a final prompt that instructs a large-language model re-ranker on how to:
+
+Take the user's query and a set of candidate documents.
+The documents and the query will appear after your instructions in this format: A list of documents is shown below. Each document has a number and a summary. The summaries may indicate the type of source, credibility level, publication date, or the nature of the information. After listing all documents, the user's query will be presented on a single line labeled "Question:". For example: Document 1: <summary of document 1> Document 2: <summary of document 2> ... Document N: <summary of document N> Question: <user's query>
+Assign each document a Relevance score (0-10) and scores for each inferred property (0-5).
+Compute a weighted composite score for each document. This composite score should not just be used to break ties, but to determine the final ordering. For instance, you may define a formula like: Final Score = Relevance + (Weight1 * Property1) + (Weight2 * Property2) + ... The weights should be specified by you. For example, if you have three properties, you might say: Final Score = Relevance + 0.5*(Property1) + 0.5*(Property2) + 0.5*(Property3) This ensures that documents which strongly exhibit the desired secondary properties can surpass documents with slightly higher relevance but weaker secondary property scores.
+Filter out irrelevant documents first. For example, discard any document with Relevance < 3.
+Rank all remaining documents by their Final Score (based on the chosen weights).
+If two documents end up with the exact same Final Score, you may choose a consistent approach to pick one over the other (e.g., prefer the document with higher authoritativeness).
+If no documents meet the relevance threshold, output nothing.
+Produce only the final ranked list of chosen documents with their Final Score, in descending order of Final Score. The format for each selected document should be: Doc: [document number], Relevance: [score], where [score] is actually the final score - not the relevance score.
+Include no commentary, explanation, or additional text beyond these lines.
+Your final prompt should:
+
+Include the user's query verbatim.
+Enumerate and define the inferred properties in detail, clearly stating their significance.
+Provide the exact scoring rubric for Relevance (0-10) and each inferred property (0-5), explaining what high and low scores mean.
+Specify the weighted composite score formula and list the weights for each property.
+Give a step-by-step procedure: assign Relevance, assign property scores, discard low-relevance documents, compute Final Scores, sort by Final Score, handle ties if any, then output the final list.
+State what to do if no documents qualify (output nothing).
+Remind the re-ranker that the documents and query will be shown after this prompt, and that the only acceptable output is the final sorted list of documents and their relevance scores.
+Your output should be a single prompt that can be given directly to the large-language model re-ranker. After this prompt, the re-ranker will receive the documents and the query and must follow the instructions to produce the final answer.
+
+At the end of your prompt, you should ALWAYS NO MATTER WHAT include the following:
+
+"Example format: \n"
+"Document 1:\n<summary of document 1>\n\n"
+"Document 2:\n<summary of document 2>\n\n"
+"...\n\n"
+"Document 10:\n<summary of document 10>\n\n"
+"Question: <question>\n"
+"Answer:\n"
+"Doc: 9, Relevance: 7\n"
+"Doc: 3, Relevance: 4\n"
+"Doc: 7, Relevance: 3\n\n"
+"Let's try this now: \n\n"
+"{context_str}\n"
+"Question: {query_str}\n"
+"Answer:\n"
+
+Below are 5 k-shot examples demonstrating the required level of detail and explicitness. Each example:
+
+Presents a user query.
+Infers multiple properties and explains their relevance.
+Provides a scoring rubric for Relevance and the inferred properties.
+Defines a weighted composite scoring formula that incorporates Relevance and all secondary properties.
+Gives step-by-step instructions for scoring, filtering, ranking, and outputting results.
+Explains what to do if no suitable documents remain.
+Instructs that the final output should only be lines of the form "Doc: [number], Relevance: [score]" with no extra text.
+Example 1 User Query: "How do different countries' tax policies affect income inequality, and what arguments exist from various economic schools of thought?"
+
+Inferred Properties:
+
+Perspective diversity (0-5): Documents that mention or compare multiple economic theories or viewpoints score higher. A high score (5) means it covers several distinct schools of thought. A low score (0) means it is one-dimensional.
+Authoritativeness (0-5): Documents from credible economists, reputable research institutes, or peer-reviewed studies score higher. A 5 might be a well-cited academic paper; a 0 might be an anonymous blog post.
+Comparative breadth (0-5): Documents discussing tax policies in multiple countries score higher. A 5 means it covers several countries, a 0 means it focuses on just one or does not compare countries at all.
+Scoring Rubric: Relevance (0-10): A 10 means the document directly addresses how tax policies influence income inequality and references arguments from different economic viewpoints. A 0 means it is off-topic. Perspective diversity (0-5): Assign based on how many distinct economic perspectives are included. Authoritativeness (0-5): Assign based on credibility and source quality. Comparative breadth (0-5): Assign based on the number of countries or breadth of international comparison.
+
+Weighted Composite Score: Final Score = Relevance + 0.5*(Perspective diversity) + 0.5*(Authoritativeness) + 0.5*(Comparative breadth)
+
+Instructions: After this prompt, you will see: Document 1: <summary> Document 2: <summary> ... Document N: <summary> Question: "How do different countries' tax policies affect income inequality, and what arguments exist from various economic schools of thought?"
+
+Assign Relevance to each document (0-10). Discard documents with Relevance < 3.
+For remaining documents, assign Perspective diversity, Authoritativeness, and Comparative breadth (each 0-5).
+Compute Final Score as described above.
+Sort all remaining documents by Final Score (descending).
+If two documents have identical Final Scores, pick consistently, for example by preferring the one with higher Authoritativeness.
+If no document remains, output nothing.
+Output only: Doc: [number], Relevance: [score] for each selected document, no commentary or explanation, where [score] is actually the final score.
+
+"Example format: \n"
+"Document 1:\n<summary of document 1>\n\n"
+"Document 2:\n<summary of document 2>\n\n"
+"...\n\n"
+"Document 10:\n<summary of document 10>\n\n"
+"Question: <question>\n"
+"Answer:\n"
+"Doc: 9, Relevance: 7\n"
+"Doc: 3, Relevance: 4\n"
+"Doc: 7, Relevance: 3\n\n"
+"Let's try this now: \n\n"
+"{context_str}\n"
+"Question: {query_str}\n"
+"Answer:\n"
+
+
+Example 2 User Query: "What are the latest recommended treatments for chronic lower back pain according to recent medical research?"
+
+Inferred Properties:
+
+Recency (0-5): Higher if the document references recent studies, new clinical guidelines, or up-to-date research (within the last few years). A 5 means it is very recent, a 0 means outdated or no mention of timeliness.
+Authoritativeness (0-5): Higher if sourced from reputable medical journals, recognized health organizations, or consensus guidelines.
+Specificity (0-5): Higher if it focuses specifically on chronic lower back pain treatments. A 5 means it precisely addresses chronic lower back pain, a 0 means it only vaguely mentions pain or general treatments without specificity.
+Scoring Rubric: Relevance (0-10): A 10 means the document explicitly discusses current recommended treatments for chronic lower back pain based on recent research. A 0 means off-topic. Recency (0-5) Authoritativeness (0-5) Specificity (0-5)
+
+Weighted Composite Score: Final Score = Relevance + 0.5*(Recency) + 0.5*(Authoritativeness) + 0.5*(Specificity)
+
+Instructions: After this prompt: Document 1: <summary> ... Document N: <summary> Question: "What are the latest recommended treatments for chronic lower back pain according to recent medical research?"
+
+Assign Relevance. Exclude Relevance < 3.
+Assign Recency, Authoritativeness, Specificity.
+Compute Final Score.
+Sort by Final Score.
+If tied, choose consistently (e.g., prefer higher Authoritativeness).
+If none remain, output nothing.
+Output only lines like: Doc: X, Relevance: Y, where Y is actually the final score.
+
+"Example format: \n"
+"Document 1:\n<summary of document 1>\n\n"
+"Document 2:\n<summary of document 2>\n\n"
+"...\n\n"
+"Document 10:\n<summary of document 10>\n\n"
+"Question: <question>\n"
+"Answer:\n"
+"Doc: 9, Relevance: 7\n"
+"Doc: 3, Relevance: 4\n"
+"Doc: 7, Relevance: 3\n\n"
+"Let's try this now: \n\n"
+"{context_str}\n"
+"Question: {query_str}\n"
+"Answer:\n"
+
+
+Example 3 User Query: "How did the policies of Emperor Qin Shi Huang shape the political and cultural landscape of ancient China?"
+
+Inferred Properties:
+
+Historical depth (0-5): Higher if it provides detailed historical context, dates, and direct evidence. A 5 is richly detailed, a 0 is very superficial.
+Perspective range (0-5): Higher if it references multiple historians or scholarly opinions. A 5 means multiple perspectives, a 0 is one-sided.
+Cultural/political detail (0-5): Higher if it addresses both political structures and cultural changes. A 5 is comprehensive, a 0 is minimal detail.
+Scoring Rubric: Relevance (0-10): A 10 means it explicitly discusses Qin Shi Huang's policies and their impact on both political and cultural aspects of ancient China. Historical depth (0-5) Perspective range (0-5) Cultural/political detail (0-5)
+
+Weighted Composite Score: Final Score = Relevance + 0.5*(Historical depth) + 0.5*(Perspective range) + 0.5*(Cultural/political detail)
+
+Instructions: After this prompt: Document 1: <summary> ... Document N: <summary> Question: "How did the policies of Emperor Qin Shi Huang shape the political and cultural landscape of ancient China?"
+
+Assign Relevance, discard < 3.
+Assign Historical depth, Perspective range, Cultural/political detail.
+Compute Final Score.
+Sort by Final Score.
+Tie-break by preferring more historically authoritative perspectives if still tied.
+If none qualify, output nothing.
+Only output: Doc: [number], Relevance: [score], where [score] is actually the final score.
+
+"Example format: \n"
+"Document 1:\n<summary of document 1>\n\n"
+"Document 2:\n<summary of document 2>\n\n"
+"...\n\n"
+"Document 10:\n<summary of document 10>\n\n"
+"Question: <question>\n"
+"Answer:\n"
+"Doc: 9, Relevance: 7\n"
+"Doc: 3, Relevance: 4\n"
+"Doc: 7, Relevance: 3\n\n"
+"Let's try this now: \n\n"
+"{context_str}\n"
+"Question: {query_str}\n"
+"Answer:\n"
+
+
+Example 4 User Query: "What are the main differences between various machine learning frameworks like TensorFlow, PyTorch, and Scikit-learn?"
+
+Inferred Properties:
+
+Technical accuracy (0-5): Higher if the document correctly and specifically describes features, performance characteristics, or typical uses. A 5 means very accurate and specific.
+Comparative breadth (0-5): Higher if the document compares multiple frameworks directly, ideally all three. A 5 means it covers all three well, a 0 means it only mentions one.
+Authoritativeness (0-5): Higher if citing official documentation, known ML experts, or reputable evaluation sources.
+Scoring Rubric: Relevance (0-10): A 10 means the document explicitly compares these ML frameworks in detail. Technical accuracy (0-5) Comparative breadth (0-5) Authoritativeness (0-5)
+
+Weighted Composite Score: Final Score = Relevance + 0.5*(Technical accuracy) + 0.5*(Comparative breadth) + 0.5*(Authoritativeness)
+
+Instructions: After prompt: Document 1: <summary> ... Document N: <summary> Question: "What are the main differences between various machine learning frameworks like TensorFlow, PyTorch, and Scikit-learn?"
+
+Assign Relevance, exclude < 3.
+Assign Technical accuracy, Comparative breadth, Authoritativeness.
+Compute Final Score.
+Sort by Final Score.
+Tie-break by preferring documents that are more authoritative or have greater comparative breadth.
+If none remain, output nothing.
+Output only lines like: Doc: [number], Relevance: [score], where [score] is actually the final score.
+
+"Example format: \n"
+"Document 1:\n<summary of document 1>\n\n"
+"Document 2:\n<summary of document 2>\n\n"
+"...\n\n"
+"Document 10:\n<summary of document 10>\n\n"
+"Question: <question>\n"
+"Answer:\n"
+"Doc: 9, Relevance: 7\n"
+"Doc: 3, Relevance: 4\n"
+"Doc: 7, Relevance: 3\n\n"
+"Let's try this now: \n\n"
+"{context_str}\n"
+"Question: {query_str}\n"
+"Answer:\n"
+
+Example 5 User Query: "What are the arguments for and against universal basic income in modern economies?"
+
+Inferred Properties:
+
+Balance of perspectives (0-5): Higher if the document presents both pro and con arguments. A 5 means thorough coverage of both sides.
+Reasoning depth (0-5): Higher if it explains the rationale behind arguments, providing logic or evidence.
+Authoritativeness (0-5): Higher if referencing economists, studies, or policy analyses from reputable sources.
+Scoring Rubric: Relevance (0-10): A 10 means it clearly discusses UBI arguments both for and against. Balance of perspectives (0-5) Reasoning depth (0-5) Authoritativeness (0-5)
+
+Weighted Composite Score: Final Score = Relevance + 0.5*(Balance of perspectives) + 0.5*(Reasoning depth) + 0.5*(Authoritativeness)
+
+Instructions: After prompt: Document 1: <summary> ... Document N: <summary> Question: "What are the arguments for and against universal basic income in modern economies?"
+
+Assign Relevance, discard < 3.
+Assign Balance of perspectives, Reasoning depth, Authoritativeness.
+Compute Final Score.
+Sort by Final Score.
+If tied, prefer documents with higher reasoning depth or authoritativeness.
+If none remain, output nothing.
+Output only: Doc: [number], Relevance: [score], where [score] is actually the final score.
+
+"Example format: \n"
+"Document 1:\n<summary of document 1>\n\n"
+"Document 2:\n<summary of document 2>\n\n"
+"...\n\n"
+"Document 10:\n<summary of document 10>\n\n"
+"Question: <question>\n"
+"Answer:\n"
+"Doc: 9, Relevance: 7\n"
+"Doc: 3, Relevance: 4\n"
+"Doc: 7, Relevance: 3\n\n"
+"Let's try this now: \n\n"
+"{context_str}\n"
+"Question: {query_str}\n"
+"Answer:\n"
+
+
+Follow these examples as a template for your final prompt. For any new user query, do the following:
+
+Include the user's query verbatim.
+Infer the relevant secondary properties and define them clearly.
+Give a scoring rubric for Relevance and each property.
+Specify a weighted composite score formula that combines Relevance and the properties.
+Provide step-by-step instructions: assign scores, filter out irrelevant documents, compute Final Score, sort by Final Score, handle ties, and if none qualify, output nothing.
+Instruct the re-ranker to output only the final list of documents and their Relevance scores, with no extra commentary.
+Now, here is the user's query:
+
+{user_query}
+'''
+)
+
+DEFAULT_REBEL_META_PROMPT = PromptTemplate(
+    DEFAULT_REBEL_META_PROMPT_TMPL, prompt_type=PromptType.REBEL_RERANK
+)
+
+DEFAULT_REBEL_CHOICE_SELECT_PROMPT_TMPL = (
+"""You are a re-ranking system. Your task is to analyze a user's query and a set of candidate documents, assign scores based on specified properties, and output the final ranking of documents.
+
+**Inferred Properties**
+
+1. **Depth of Content (0-5):**
+- Higher scores indicate thorough detail and comprehensive coverage of the topic.
+- A "5" is exceptionally in-depth with multiple facets addressed; a "0" is very superficial.
+
+2. **Diversity of Perspectives (0-5):**
+- Higher scores indicate that multiple viewpoints or angles are represented.
+- A "5" means it engages with a variety of perspectives or sources; a "0" means it is entirely one-sided.
+
+3. **Clarity and Specificity (0-5):**
+- Higher scores indicate that the document presents information clearly and addresses the query with precise, unambiguous detail.
+- A "5" means it is highly specific and clear, while a "0" means it is vague or overly general.
+
+4. **Authoritativeness (0-5):**
+- Higher scores indicate reputable sources, expert authorship, or recognized credibility.
+- A "5" might be an extensively cited academic work or an official standard; a "0" would be an unknown or dubious source.
+
+5. **Recency (0-5):**
+- Higher scores indicate that the document references recent studies, data, or developments.
+- A "5" means it is very current and up-to-date; a "0" means it is outdated or does not reference any time-sensitive information.
+
+**Scoring Rubric**
+
+- **Relevance (0-10):**
+- A "10" means the document directly addresses the user's query, covering the key subject comprehensively.
+- A "0" means it is completely off-topic.
+
+- **Depth of Content (0-5):** Based on how detailed or thorough the document is.
+- **Diversity of Perspectives (0-5):** Based on how many viewpoints or angles are presented.
+- **Clarity and Specificity (0-5):** Based on how clear and precise the document is.
+- **Authoritativeness (0-5):** Based on source credibility or recognized expertise.
+- **Recency (0-5):** Based on how up-to-date the document is.
+
+**Weighted Composite Score**
+Final Score = Relevance + 0.5*(Depth of Content) + 0.5*(Diversity of Perspectives) + 0.5*(Clarity and Specificity) + 0.5*(Authoritativeness) + 0.5*(Recency)
+
+**Instructions**
+1. Assign Relevance to each document on a scale of 0-10. Discard any document with Relevance < 3.
+2. For the remaining documents, assign scores for:
+- Depth of Content (0-5)
+- Diversity of Perspectives (0-5)
+- Clarity and Specificity (0-5)
+- Authoritativeness (0-5)
+- Recency (0-5)
+3. Compute each document's Final Score using the formula above.
+4. Sort the documents by their Final Score in descending order.
+5. If two documents end up with the same Final Score, prefer the one with higher Authoritativeness (or apply another consistent tie-breaking rule).
+6. If no documents remain after filtering for Relevance, output nothing.
+7. Output only the list of theselected documents with their Relevance scores, in this format (no extra text or commentary), where [score] is actually the Final Score and NOT the relevance score.
+```
+Doc: [document number], Relevance: [score]
+```
+
+**Example format:**
+```
+Document 1:
+<summary of document 1>
+
+Document 2:
+<summary of document 2>
+
+...
+
+Document 10:
+<summary of document 10>
+
+Question: <question>
+Answer:
+Doc: 9, Relevance: 7
+Doc: 3, Relevance: 4
+Doc: 7, Relevance: 3
+
+Let's try this now:
+
+{context_str}
+Question: {query_str}
+Answer:
+```""")
+
+DEFAULT_REBEL_CHOICE_SELECT_PROMPT = PromptTemplate(
+    DEFAULT_REBEL_CHOICE_SELECT_PROMPT_TMPL, prompt_type=PromptType.CHOICE_SELECT
+)
