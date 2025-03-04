@@ -203,18 +203,24 @@ class BaseIndex(Generic[IS], ABC):
             self._insert(nodes, **insert_kwargs)
             self._storage_context.index_store.add_index_struct(self._index_struct)
 
-    def insert(self, document: Document, **insert_kwargs: Any) -> None:
+    def insert(
+        self, documents: Document | Sequence[Document], **insert_kwargs: Any
+    ) -> None:
         """Insert a document."""
         with self._callback_manager.as_trace("insert"):
+            if isinstance(documents, Document):
+                documents = [documents]
+
             nodes = run_transformations(
-                [document],
+                documents,
                 self._transformations,
                 show_progress=self._show_progress,
                 **insert_kwargs,
             )
 
             self.insert_nodes(nodes, **insert_kwargs)
-            self.docstore.set_document_hash(document.get_doc_id(), document.hash)
+            for doc in documents:
+                self.docstore.set_document_hash(doc.get_doc_id(), doc.hash)
 
     @abstractmethod
     def _delete_node(self, node_id: str, **delete_kwargs: Any) -> None:
@@ -299,13 +305,7 @@ class BaseIndex(Generic[IS], ABC):
             delete_kwargs (Dict): kwargs to pass to delete
 
         """
-        with self._callback_manager.as_trace("update"):
-            self.delete_ref_doc(
-                document.get_doc_id(),
-                delete_from_docstore=True,
-                **update_kwargs.pop("delete_kwargs", {}),
-            )
-            self.insert(document, **update_kwargs.pop("insert_kwargs", {}))
+        self.refresh_ref_docs([document], **update_kwargs)
 
     def refresh(
         self, documents: Sequence[Document], **update_kwargs: Any
@@ -333,18 +333,22 @@ class BaseIndex(Generic[IS], ABC):
         """
         with self._callback_manager.as_trace("refresh"):
             refreshed_documents = [False] * len(documents)
-            for i, document in enumerate(documents):
-                existing_doc_hash = self._docstore.get_document_hash(
-                    document.get_doc_id()
-                )
+            for i, doc in enumerate(documents):
+                existing_doc_hash = self._docstore.get_document_hash(doc.get_doc_id())
                 if existing_doc_hash is None:
-                    self.insert(document, **update_kwargs.pop("insert_kwargs", {}))
                     refreshed_documents[i] = True
-                elif existing_doc_hash != document.hash:
-                    self.update_ref_doc(
-                        document, **update_kwargs.pop("update_kwargs", {})
+                elif existing_doc_hash != doc.hash:
+                    self.delete_ref_doc(
+                        doc.get_doc_id(),
+                        delete_from_docstore=True,
+                        **update_kwargs.pop("delete_kwargs", {}),
                     )
                     refreshed_documents[i] = True
+
+            documents = [
+                doc for i, doc in enumerate(documents) if refreshed_documents[i]
+            ]
+            self.insert(documents, **update_kwargs.pop("insert_kwargs", {}))
 
             return refreshed_documents
 
