@@ -39,6 +39,11 @@ class TokenTextSplitter(MetadataAwareTextSplitter):
         default_factory=list, description="Additional separators for splitting."
     )
 
+    keep_whitespaces: bool = Field(
+        default=False,
+        description="Whether to keep leading/trailing whitespaces in the chunk.",
+    )
+
     _tokenizer: Callable = PrivateAttr()
     _split_fns: List[Callable] = PrivateAttr()
 
@@ -50,6 +55,7 @@ class TokenTextSplitter(MetadataAwareTextSplitter):
         callback_manager: Optional[CallbackManager] = None,
         separator: str = " ",
         backup_separators: Optional[List[str]] = ["\n"],
+        keep_whitespaces: bool = False,
         include_metadata: bool = True,
         include_prev_next_rel: bool = True,
         id_func: Optional[Callable[[int, Document], str]] = None,
@@ -67,6 +73,7 @@ class TokenTextSplitter(MetadataAwareTextSplitter):
             chunk_overlap=chunk_overlap,
             separator=separator,
             backup_separators=backup_separators,
+            keep_whitespaces=keep_whitespaces,
             callback_manager=callback_manager,
             include_metadata=include_metadata,
             include_prev_next_rel=include_prev_next_rel,
@@ -84,6 +91,7 @@ class TokenTextSplitter(MetadataAwareTextSplitter):
         separator: str = " ",
         backup_separators: Optional[List[str]] = ["\n"],
         callback_manager: Optional[CallbackManager] = None,
+        keep_whitespaces: bool = False,
         include_metadata: bool = True,
         include_prev_next_rel: bool = True,
         id_func: Optional[Callable[[int, Document], str]] = None,
@@ -95,6 +103,7 @@ class TokenTextSplitter(MetadataAwareTextSplitter):
             chunk_overlap=chunk_overlap,
             separator=separator,
             backup_separators=backup_separators,
+            keep_whitespaces=keep_whitespaces,
             callback_manager=callback_manager,
             include_metadata=include_metadata,
             include_prev_next_rel=include_prev_next_rel,
@@ -200,7 +209,11 @@ class TokenTextSplitter(MetadataAwareTextSplitter):
             # we need to end the current chunk and start a new one
             if cur_len + split_len > chunk_size:
                 # end the previous chunk
-                chunk = "".join(cur_chunk).strip()
+                chunk = (
+                    "".join(cur_chunk)
+                    if self.keep_whitespaces
+                    else "".join(cur_chunk).strip()
+                )
                 if chunk:
                     chunks.append(chunk)
 
@@ -217,7 +230,9 @@ class TokenTextSplitter(MetadataAwareTextSplitter):
             cur_len += split_len
 
         # handle the last chunk
-        chunk = "".join(cur_chunk).strip()
+        chunk = (
+            "".join(cur_chunk) if self.keep_whitespaces else "".join(cur_chunk).strip()
+        )
         if chunk:
             chunks.append(chunk)
 
