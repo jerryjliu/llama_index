@@ -5,10 +5,11 @@ from llama_index.core.workflow.context import Context
 from llama_index.core.workflow.errors import WorkflowDone
 from llama_index.core.workflow.events import Event, StopEvent
 
+from .types import RunResultT
 from .utils import BUSY_WAIT_DELAY
 
 
-class WorkflowHandler(asyncio.Future):
+class WorkflowHandler(asyncio.Future[RunResultT]):
     def __init__(
         self,
         *args: Any,

@@ -16,6 +16,7 @@ from typing import (
 
 from llama_index.core.bridge.pydantic import ValidationError
 from llama_index.core.instrumentation import get_dispatcher
+from llama_index.core.workflow.types import RunResultT
 
 from .checkpointer import Checkpoint, CheckpointCallback
 from .context import Context
@@ -126,7 +127,7 @@ class Workflow(metaclass=WorkflowMeta):
         else:
             return start_events_found.pop()
 
-    def _ensure_stop_event_class(self) -> type[StopEvent]:
+    def _ensure_stop_event_class(self) -> type[RunResultT]:
         """Returns the StopEvent type used in this workflow.
 
         It works by inspecting the events returned.
@@ -590,7 +591,11 @@ class Workflow(metaclass=WorkflowMeta):
     @step
     async def _done(self, ctx: Context, ev: StopEvent) -> None:
         """Tears down the whole workflow and stop execution."""
-        ctx._retval = ev.result
+        if self._stop_event_class is StopEvent:
+            ctx._retval = ev.result
+        else:
+            ctx._retval = ev
+
         ctx.write_event_to_stream(ev)
 
         # Signal we want to stop the workflow

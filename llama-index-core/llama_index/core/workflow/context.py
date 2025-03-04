@@ -20,6 +20,7 @@ from .context_serializers import BaseSerializer, JsonSerializer
 from .decorators import StepConfig
 from .errors import WorkflowRuntimeError
 from .events import Event
+from .types import RunResultT
 
 if TYPE_CHECKING:  # pragma: no cover
     from .workflow import Workflow
@@ -63,7 +64,8 @@ class Context:
             lock=self._step_lock
         )
         self._accepted_events: List[Tuple[str, str]] = []
-        self._retval: Any = None
+        self._retval: RunResultT = None
+
         # Map the step names that were executed to a list of events they received.
         # This will be serialized, and is needed to resume a Workflow run passing
         # an existing context.
@@ -347,7 +349,7 @@ class Context:
             event = await asyncio.wait_for(
                 self._queues[self._waiter_id].get(), timeout=timeout
             )
-            if type(event) == event_type:
+            if type(event) is event_type:
                 if all(
                     event.get(k, default=None) == v for k, v in requirements.items()
                 ):
@@ -358,7 +360,7 @@ class Context:
     def write_event_to_stream(self, ev: Optional[Event]) -> None:
         self._streaming_queue.put_nowait(ev)
 
-    def get_result(self) -> Any:
+    def get_result(self) -> RunResultT:
         """Returns the result of the workflow."""
         return self._retval
 

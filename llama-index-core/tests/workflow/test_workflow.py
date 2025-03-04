@@ -756,13 +756,15 @@ async def test_custom_stop_event():
     wf = CustomEventsWorkflow()
     assert wf._start_event_class == MyStart
     assert wf._stop_event_class == MyStop
-    result = await wf.run(query="foo")
+    result: MyStop = await wf.run(query="foo")
+    assert result.outcome == "Workflow completed"
 
     # Ensure the event types can be inferred when not passed to the init
     wf = CustomEventsWorkflow()
     assert wf._start_event_class == MyStart
     assert wf._stop_event_class == MyStop
-    result = await wf.run(query="foo")
+    result: MyStop = await wf.run(query="foo")
+    assert result.outcome == "Workflow completed"
 
 
 def test_is_done(workflow):
