@@ -2,6 +2,7 @@ import asyncio
 from typing import Any, Dict, Generator, List, Union, Optional
 
 import pytest
+from llama_index.core import VectorStoreIndex
 from llama_index.core.schema import (
     BaseNode,
     IndexNode,
@@ -9,6 +10,8 @@ from llama_index.core.schema import (
     RelatedNodeInfo,
     TextNode,
 )
+from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.response_synthesizers import get_response_synthesizer
 from llama_index.core.vector_stores.types import (
     ExactMatchFilter,
     FilterOperator,
@@ -966,6 +969,34 @@ async def test_delete_nodes_metadata(
         res = pg_fixture.query(q)
     assert all(i not in res.ids for i in ["bbb", "aaa", "ddd"])
     assert "ccc" in res.ids
+
+
+@pytest.mark.skipif(postgres_not_available, reason="postgres db is not available")
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("pg_fixture", ["pg", "pg_hybrid"], indirect=True)
+@pytest.mark.parametrize("use_async", [True, False])
+async def test_set_ivfflat(pg_fixture: PGVectorStore, use_async: bool) -> None:
+    vector_index = VectorStoreIndex.from_vector_store(vector_store=pg_fixture)
+
+    vector_retriever = vector_index.as_retriever(
+        vector_store_kwargs={"ivfflat_probes": 20}
+    )
+    vector_response_synthesizer = get_response_synthesizer(
+        use_async=use_async,
+    )
+
+    vector_query_engine = RetrieverQueryEngine(
+        retriever=vector_retriever,
+        response_synthesizer=vector_response_synthesizer,
+    )
+
+    query = "lorem ipsum"
+    if use_async:
+        response = await vector_query_engine.aquery(query)
+    else:
+        response = vector_query_engine.query(query)
+
+    assert response
 
 
 @pytest.mark.skipif(postgres_not_available, reason="postgres db is not available")

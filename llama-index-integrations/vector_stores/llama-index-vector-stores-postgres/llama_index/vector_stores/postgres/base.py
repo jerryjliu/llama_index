@@ -647,12 +647,16 @@ class PGVectorStore(BasePydanticVectorStore):
         stmt = self._build_query(embedding, limit, metadata_filters)
         with self._session() as session, session.begin():
             from sqlalchemy import text
+            from psycopg2 import sql
 
             if kwargs.get("ivfflat_probes"):
                 ivfflat_probes = kwargs.get("ivfflat_probes")
                 session.execute(
-                    text(f"SET ivfflat.probes = :ivfflat_probes"),
-                    {"ivfflat_probes": ivfflat_probes},
+                    text(
+                        sql.SQL("SET ivfflat.probes = {}")
+                        .format(sql.Literal(ivfflat_probes))
+                        .as_string(context=self._engine.raw_connection().connection),
+                    )
                 )
             if self.hnsw_kwargs:
                 hnsw_ef_search = (
@@ -686,6 +690,7 @@ class PGVectorStore(BasePydanticVectorStore):
         stmt = self._build_query(embedding, limit, metadata_filters)
         async with self._async_session() as async_session, async_session.begin():
             from sqlalchemy import text
+            from psycopg2 import sql
 
             if self.hnsw_kwargs:
                 hnsw_ef_search = (
@@ -697,8 +702,11 @@ class PGVectorStore(BasePydanticVectorStore):
             if kwargs.get("ivfflat_probes"):
                 ivfflat_probes = kwargs.get("ivfflat_probes")
                 await async_session.execute(
-                    text(f"SET ivfflat.probes = :ivfflat_probes"),
-                    {"ivfflat_probes": ivfflat_probes},
+                    text(
+                        sql.SQL("SET ivfflat.probes = {}")
+                        .format(sql.Literal(ivfflat_probes))
+                        .as_string(context=self._engine.raw_connection().connection),
+                    )
                 )
 
             res = await async_session.execute(stmt)
