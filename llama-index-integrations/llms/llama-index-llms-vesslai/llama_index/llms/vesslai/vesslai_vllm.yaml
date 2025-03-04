@@ -1,0 +1,24 @@
+description: Quickstart to serve LLM model with vLLM.
+env:
+  MODEL_NAME: !!str
+image: quay.io/vessl-ai/vllm
+name: vllm-server
+ports:
+- name: vllm
+  port: 8000
+  type: http
+resources:
+  cluster: vessl-gcp-oregon
+  preset: gpu-l4-small-spot
+run:
+- command: 'vllm serve $MODEL_NAME --max-model-len 8192 --disable-frontend-multiprocessing'
+service:
+  autoscaling:
+    max: 2
+    metric: cpu
+    min: 1
+    target: 50
+  expose: 8000
+  monitoring:
+  - path: /metrics
+    port: 8000
