@@ -8,7 +8,7 @@ import io
 import logging
 import struct
 import zlib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 
 from tenacity import retry, stop_after_attempt
@@ -43,8 +43,8 @@ class PDFReader(BaseReader):
         fs: Optional[AbstractFileSystem] = None,
     ) -> List[Document]:
         """Parse file."""
-        if not isinstance(file, Path):
-            file = Path(file)
+        if not isinstance(file, Path) and not isinstance(file, PurePosixPath):
+            file = PurePosixPath(file)
 
         try:
             import pypdf
