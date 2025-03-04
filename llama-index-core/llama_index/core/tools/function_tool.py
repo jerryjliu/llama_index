@@ -126,8 +126,41 @@ class FunctionTool(AsyncBaseTool):
         async_callback: Optional[AsyncCallable] = None,
     ) -> "FunctionTool":
         if tool_metadata is None:
-            fn_to_parse = fn or async_fn
-            assert fn_to_parse is not None, "fn must be provided"
+            tool_metadata = cls.tool_metadata_from_defaults(
+                fn=fn or async_fn,
+                name=name,
+                description=description,
+                return_direct=return_direct,
+                fn_schema=fn_schema
+            )
+        assert (fn or async_fn) is not None, "fn must be provided"
+        return cls(
+            fn=fn,
+            metadata=tool_metadata,
+            async_fn=async_fn,
+            callback=callback,
+            async_callback=async_callback,
+        )
+
+    @classmethod
+    def tool_metadata_from_defaults(
+            cls,
+            fn: Optional[Union[Callable[..., Any], AsyncCallable]] = None,
+            name: Optional[str] = None,
+            description: Optional[str] = None,
+            return_direct: bool = False,
+            fn_schema: Optional[Type[BaseModel]] = None
+    ) -> ToolMetadata:
+        """Creates tool metadata from default values and returns it.
+        Args:
+            fn: Function to parse. Optional if name, description, and fn_schema are provided.
+            name: Name of the tool. Optional if fn is provided.
+            description: Description of the tool. Optional if fn is provided.
+            return_direct: Return tool output directly, ending agent loop.
+            fn_schema: Schema of the function. Optional if fn is provided.
+        """
+        fn_to_parse = fn
+        if fn_to_parse:
             name = name or fn_to_parse.__name__
             docstring = fn_to_parse.__doc__
 
@@ -173,18 +206,15 @@ class FunctionTool(AsyncBaseTool):
                     if ctx_param_name is not None
                     else None,
                 )
-            tool_metadata = ToolMetadata(
-                name=name,
-                description=description,
-                fn_schema=fn_schema,
-                return_direct=return_direct,
-            )
-        return cls(
-            fn=fn,
-            metadata=tool_metadata,
-            async_fn=async_fn,
-            callback=callback,
-            async_callback=async_callback,
+        else:
+            assert name is not None, "name or fn must be provided"
+            assert description is not None, "description or fn must be provided"
+            assert fn_schema is not None, "fn_schema or fn must be provided"
+        return ToolMetadata(
+            name=name,
+            description=description,
+            fn_schema=fn_schema,
+            return_direct=return_direct,
         )
 
     @property
