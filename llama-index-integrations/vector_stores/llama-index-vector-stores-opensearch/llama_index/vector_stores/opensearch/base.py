@@ -32,6 +32,16 @@ INVALID_HYBRID_QUERY_ERROR = (
 )
 MATCH_ALL_QUERY = {"match_all": {}}  # type: Dict
 
+VALID_DATA_TYPES = ["float", "byte", "binary"]
+BYTE_VECTOR_ENGINES = ["lucene", "faiss"]
+BINARY_VECTOR_ENGINE = "faiss"
+INVALID_BYTE_VECTOR_ENGINE = (
+    "Byte vectors only support 'lucene' or 'faiss' as the engine type."
+)
+INVALID_DATA_TYPE = f"Data type must be one of {VALID_DATA_TYPES}"
+INVALID_BINARY_ENGINE = "Binary vectors must use 'faiss' as the engine type"
+INVALID_BINARY_SPACE_TYPE = "Binary vectors must use 'hamming' as the space type"
+
 
 class OpensearchVectorClient:
     """
@@ -48,18 +58,12 @@ class OpensearchVectorClient:
         embedding_field (str): Name of the field in the index to store
             embedding array in.
         text_field (str): Name of the field to grab text from
+        data_type (str): Type of vector data. One of ["float", "byte", "binary"]
         method (Optional[dict]): Opensearch "method" JSON obj for configuring
             the KNN index.
-            This includes engine, metric, and other config params. Defaults to:
-            {"name": "hnsw", "space_type": "l2", "engine": "nmslib",
-            "parameters": {"ef_construction": 256, "m": 48}}
-        settings: Optional[dict]: Settings for the Opensearch index creation. Defaults to:
-            {"index": {"knn": True, "knn.algo_param.ef_search": 100}}
-        space_type (Optional[str]): space type for distance metric calculation. Defaults to: l2
-        os_client (Optional[OSClient]): Custom synchronous client (see OpenSearch from opensearch-py)
-        os_async_client (Optional[OSClient]): Custom asynchronous client (see AsyncOpenSearch from opensearch-py)
-        **kwargs: Optional arguments passed to the OpenSearch client from opensearch-py.
-
+            This includes engine, metric, and other config params.
+        space_type (Optional[str]): space type for distance metric calculation.
+        **kwargs: Optional arguments passed to the OpenSearch client.
     """
 
     def __init__(
@@ -69,6 +73,7 @@ class OpensearchVectorClient:
         dim: int,
         embedding_field: str = "embedding",
         text_field: str = "content",
+        data_type: str = "float",
         method: Optional[dict] = None,
         settings: Optional[dict] = None,
         engine: Optional[str] = "nmslib",
@@ -80,10 +85,26 @@ class OpensearchVectorClient:
         **kwargs: Any,
     ):
         """Init params."""
+        if method is not None:
+            engine = method.get("engine", engine)
+            space_type = method.get("space_type", space_type)
+
+        if data_type not in VALID_DATA_TYPES:
+            raise ValueError(INVALID_DATA_TYPE)
+
+        if data_type == "byte" and engine not in BYTE_VECTOR_ENGINES:
+            raise ValueError(INVALID_BYTE_VECTOR_ENGINE)
+
+        if data_type == "binary":
+            if engine != BINARY_VECTOR_ENGINE:
+                raise ValueError(INVALID_BINARY_ENGINE)
+            if space_type != "hamming":
+                raise ValueError(INVALID_BINARY_SPACE_TYPE)
+        # Default method configuration
         if method is None:
             method = {
                 "name": "hnsw",
-                "space_type": "l2",
+                "space_type": space_type,
                 "engine": engine,
                 "parameters": {"ef_construction": 256, "m": 48},
             }
@@ -99,6 +120,7 @@ class OpensearchVectorClient:
         self._index = index
         self._text_field = text_field
         self._max_chunk_bytes = max_chunk_bytes
+        self._data_type = data_type
 
         self._search_pipeline = search_pipeline
         http_auth = kwargs.get("http_auth")
@@ -112,6 +134,7 @@ class OpensearchVectorClient:
                     embedding_field: {
                         "type": "knn_vector",
                         "dimension": dim,
+                        "data_type": data_type,
                         "method": method,
                     },
                 }
