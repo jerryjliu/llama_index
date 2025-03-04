@@ -2,6 +2,7 @@
 import re
 from typing import Any, List, Optional, Sequence
 
+from llama_index.core.bridge.pydantic import Field
 from llama_index.core.callbacks.base import CallbackManager
 from llama_index.core.node_parser.interface import NodeParser
 from llama_index.core.node_parser.node_utils import build_nodes_from_splits
@@ -18,19 +19,26 @@ class MarkdownNodeParser(NodeParser):
     Args:
         include_metadata (bool): whether to include metadata in nodes
         include_prev_next_rel (bool): whether to include prev/next relationships
+        header_path_separator (str): separator char used for section header path metadata
     """
+
+    header_path_separator: str = Field(
+        default="/", description="Separator char used for section header path metadata."
+    )
 
     @classmethod
     def from_defaults(
         cls,
         include_metadata: bool = True,
         include_prev_next_rel: bool = True,
+        header_path_separator: str = "/",
         callback_manager: Optional[CallbackManager] = None,
     ) -> "MarkdownNodeParser":
         callback_manager = callback_manager or CallbackManager([])
         return cls(
             include_metadata=include_metadata,
             include_prev_next_rel=include_prev_next_rel,
+            header_path_separator=header_path_separator,
             callback_manager=callback_manager,
         )
 
@@ -61,7 +69,9 @@ class MarkdownNodeParser(NodeParser):
                             self._build_node_from_split(
                                 current_section.strip(),
                                 node,
-                                "/".join(h[1] for h in header_stack[:-1]),
+                                self.header_path_separator.join(
+                                    h[1] for h in header_stack[:-1]
+                                ),
                             )
                         )
 
@@ -87,7 +97,7 @@ class MarkdownNodeParser(NodeParser):
                 self._build_node_from_split(
                     current_section.strip(),
                     node,
-                    "/".join(h[1] for h in header_stack[:-1]),
+                    self.header_path_separator.join(h[1] for h in header_stack[:-1]),
                 )
             )
 
@@ -103,8 +113,12 @@ class MarkdownNodeParser(NodeParser):
         node = build_nodes_from_splits([text_split], node, id_func=self.id_func)[0]
 
         if self.include_metadata:
+            separator = self.header_path_separator
             node.metadata["header_path"] = (
-                "/" + header_path + "/" if header_path else "/"
+                # ex: "/header1/header2/" || "/"
+                separator + header_path + separator
+                if header_path
+                else separator
             )
 
         return node
