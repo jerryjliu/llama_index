@@ -346,6 +346,10 @@ class ReActAgent(BaseAgent):
             input_chat = self._react_chat_formatter.format(
                 tools,
                 chat_history=self._memory.get(),
+                # Let LLM know that it can only take at most this many steps to complete the task.
+                # - `//2`: An observation step also takes as an iteration.
+                # - `-1`: The final output reasoning step needs to take a spot.
+                allowance=(self._max_iterations - 1) // 2,
                 current_reasoning=current_reasoning,
             )
             # send prompt
@@ -385,6 +389,10 @@ class ReActAgent(BaseAgent):
             input_chat = self._react_chat_formatter.format(
                 tools,
                 chat_history=self._memory.get(),
+                # Let LLM know that it can only take at most this many steps to complete the task.
+                # - `//2`: An observation step also takes as an iteration.
+                # - `-1`: The final output reasoning step needs to take a spot.
+                allowance=(self._max_iterations - 1) // 2,
                 current_reasoning=current_reasoning,
             )
             # send prompt
@@ -426,6 +434,10 @@ class ReActAgent(BaseAgent):
             input_chat = self._react_chat_formatter.format(
                 tools,
                 chat_history=self._memory.get(),
+                # Let LLM know that it can only take at most this many steps to complete the task.
+                # - `//2`: An observation step also takes as an iteration.
+                # - `-1`: The final output reasoning step needs to take a spot.
+                allowance=(self._max_iterations - 1) // 2,
                 current_reasoning=current_reasoning,
             )
             # send prompt
@@ -487,6 +499,10 @@ class ReActAgent(BaseAgent):
             input_chat = self._react_chat_formatter.format(
                 tools,
                 chat_history=self._memory.get(),
+                # Let LLM know that it can only take at most this many steps to complete the task.
+                # - `//2`: An observation step also takes as an iteration.
+                # - `-1`: The final output reasoning step needs to take a spot.
+                allowance=(self._max_iterations - 1) // 2,
                 current_reasoning=current_reasoning,
             )
             # send prompt
