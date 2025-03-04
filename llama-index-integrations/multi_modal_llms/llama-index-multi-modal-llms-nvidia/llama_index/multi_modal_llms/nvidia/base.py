@@ -30,6 +30,7 @@ from llama_index.core.base.llms.generic_utils import get_from_param_or_env
 
 from llama_index.multi_modal_llms.nvidia.utils import (
     BASE_URL,
+    DEFAULT_MODEL,
     KNOWN_URLS,
     NVIDIA_MULTI_MODAL_MODELS,
     generate_nvidia_multi_modal_chat_message,
@@ -38,6 +39,7 @@ from llama_index.multi_modal_llms.nvidia.utils import (
 )
 import aiohttp
 import json
+import warnings
 
 from llama_index.core.bridge.pydantic import BaseModel
 
@@ -154,7 +156,7 @@ class NVIDIAMultiModal(MultiModalLLM):
 
     def __init__(
         self,
-        model: str = "microsoft/phi-3-vision-128k-instruct",
+        model: str = None,
         temperature: float = DEFAULT_TEMPERATURE,
         max_tokens: Optional[int] = 300,
         nvidia_api_key: Optional[str] = None,
@@ -175,6 +177,16 @@ class NVIDIAMultiModal(MultiModalLLM):
         if is_hosted and api_key == "NO_API_KEY_PROVIDED":
             raise ValueError(
                 "An API key is required for the hosted NIM. This will become an error in 0.2.0."
+            )
+
+        ## set default model
+        if not model:
+            model = DEFAULT_MODEL
+            warnings.warn(
+                f"Default model is set as: {model}. \n"
+                "Set model using model parameter. \n"
+                "To get available models use available_models property.",
+                UserWarning,
             )
 
         super().__init__(

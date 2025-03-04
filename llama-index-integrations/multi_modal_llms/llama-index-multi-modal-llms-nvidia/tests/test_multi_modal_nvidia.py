@@ -2,6 +2,7 @@ from llama_index.core.multi_modal_llms.base import MultiModalLLM
 from llama_index.multi_modal_llms.nvidia import NVIDIAMultiModal
 from llama_index.multi_modal_llms.nvidia.utils import (
     NVIDIA_MULTI_MODAL_MODELS,
+    DEFAULT_MODEL,
 )
 import base64
 import os
@@ -434,3 +435,15 @@ async def test_vlm_chat_async_stream(vlm_model: str) -> None:
     async for token in await llm.astream_chat(messages):
         assert isinstance(token, ChatResponse)
         assert isinstance(token.delta, str)
+
+
+def test_default_known() -> None:
+    """
+    Test that a model in the model table will be accepted.
+    """
+    # check if default model is getting set
+    with pytest.warns(UserWarning) as record:
+        x = NVIDIAMultiModal()
+        assert x.model == DEFAULT_MODEL
+    assert len(record) == 1
+    assert f"Default model is set as: {DEFAULT_MODEL}" in str(record[0].message)

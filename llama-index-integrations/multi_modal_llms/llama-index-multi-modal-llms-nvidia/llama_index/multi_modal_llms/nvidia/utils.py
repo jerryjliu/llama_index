@@ -8,7 +8,7 @@ import re
 import urllib
 from llama_index.core.base.llms.types import ChatMessage
 
-DEFAULT_MODEL = "microsoft/phi-3-vision-128k-instruct"
+DEFAULT_MODEL = "nvidia/neva-22b"
 BASE_URL = "https://ai.api.nvidia.com/v1/"
 
 KNOWN_URLS = [
