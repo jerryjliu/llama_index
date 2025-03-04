@@ -31,7 +31,7 @@ exclude = ["**/BUILD"]
 license = "MIT"
 name = "llama-index-indices-managed-vectara"
 readme = "README.md"
-version = "0.4.1"
+version = "0.4.2"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"

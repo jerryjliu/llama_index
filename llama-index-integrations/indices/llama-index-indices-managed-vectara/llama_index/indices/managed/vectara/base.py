@@ -262,7 +262,7 @@ class VectaraIndex(BaseManagedIndex):
         description: Optional[str] = None,
         max_chars_per_chunk: Optional[int] = None,
     ) -> None:
-        """ "
+        """
         Indexes a document into a corpus using the Vectara Structured Document format.
 
         Full API Docs: https://docs.vectara.com/docs/api-reference/indexing-apis/indexing#structured-document-object-definition
