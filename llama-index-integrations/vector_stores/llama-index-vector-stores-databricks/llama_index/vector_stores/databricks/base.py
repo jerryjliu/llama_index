@@ -5,9 +5,11 @@ Supports Delta Sync indexes and Direct Access indexes in Databricks Vector Searc
 """
 
 import json
+import ast
 import logging
 from typing import Any, List, Dict, Optional, cast
 from enum import Enum
+import json
 
 from databricks.vector_search.client import VectorSearchIndex
 
@@ -146,6 +148,7 @@ class DatabricksVectorSearch(BasePydanticVectorStore):
         self._delta_sync_index_spec = index_description.delta_sync_index_spec
         self._direct_access_index_spec = index_description.direct_access_index_spec
         self._doc_id_to_pk = {}
+        self._node_info_columns = ["relationships", "start_char_idx", "end_char_idx"]
 
         if columns is None:
             columns = []
@@ -210,8 +213,19 @@ class DatabricksVectorSearch(BasePydanticVectorStore):
         ids = []
         for node in nodes:
             node_id = node.node_id
-            metadata = node_to_metadata_dict(node, remove_text=True, flat_metadata=True)
 
+            # unroll metadata in node_content
+            node_metadata = node_to_metadata_dict(
+                node, remove_text=True, flat_metadata=True
+            )
+            node_content = json.loads(node_metadata.get("_node_content", {}))
+            metadata = node_content.get("metadata", {})
+
+            # add node_info (star_char, end_char, relationships)
+            node_info = {key: node_content[key] for key in self._node_info_columns}
+            metadata.update(
+                {"doc_id": node_metadata["doc_id"], "node_info": str(node_info)}
+            )
             metadata_columns = self.columns or []
 
             # explicitly record doc_id as metadata (for delete)
@@ -327,17 +341,26 @@ class DatabricksVectorSearch(BasePydanticVectorStore):
         for result in search_resp.get("result", {}).get("data_array", []):
             doc_id = result[columns.index(self._primary_key)]
             text_content = result[columns.index(self.text_column)]
-            metadata = {
+
+            # extract metadata and node_info respectively from metadata_dict
+            metadata_dict = {
                 col: value
                 for col, value in zip(columns[:-1], result[:-1])
-                if col not in [self._primary_key, self.text_column]
+                if col not in [self._primary_key, self.text_column, "doc_id"]
             }
-            metadata[self._primary_key] = doc_id
+            metadata = {
+                col: value for col, value in metadata_dict.items() if col != "node_info"
+            }
+            node_info = ast.literal_eval(metadata_dict.get("node_info", "{}"))
             score = result[-1]
             node = TextNode(
-                text=text_content, id_=doc_id, metadata=metadata
-            )  # TODO star_char, end_char, relationships? https://github.com/run-llama/llama_index/blob/main/llama-index-integrations/vector_stores/llama-index-vector-stores-pinecone/llama_index/vector_stores/pinecone/base.py
-
+                text=text_content,
+                id_=doc_id,
+                metadata=metadata,
+                start_char_idx=node_info.get("start_char_idx", None),
+                end_char_idx=node_info.get("end_char_idx", None),
+                relationships=node_info.get("relationships", {}),
+            )
             top_k_ids.append(doc_id)
             top_k_nodes.append(node)
             top_k_scores.append(score)
