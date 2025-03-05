@@ -1,0 +1,46 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
+
+[tool.codespell]
+check-filenames = true
+check-hidden = true
+skip = "*.csv,*.html,*.json,*.jsonl,*.pdf,*.txt,*.ipynb"
+
+[tool.llamahub]
+contains_example = false
+import_path = "llama_index.llms.contextual"
+
+[tool.llamahub.class_authors]
+Contextual = "sean-smith"
+
+[tool.mypy]
+disallow_untyped_defs = true
+exclude = ["_static", "build", "examples", "notebooks", "venv"]
+ignore_missing_imports = true
+python_version = "3.8"
+
+[tool.poetry]
+authors = ["Sean Smith <sean.smith@contextual.ai>"]
+description = "llama-index contextual integration"
+exclude = ["**/BUILD"]
+license = "MIT"
+name = "llama-index-llms-contextual"
+readme = "README.md"
+version = "0.0.1"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+llama-index-llms-openai-like = "^0.3.3"
+contextual-client = "^0.4.0"
+
+[tool.poetry.group.dev.dependencies.black]
+extras = ["jupyter"]
+version = "<=23.9.1,>=23.7.0"
+
+[tool.poetry.group.dev.dependencies.codespell]
+extras = ["toml"]
+version = ">=v2.2.6"
+
+[[tool.poetry.packages]]
+include = "llama_index/"
