@@ -270,7 +270,7 @@ class BaseNode(BaseComponent):
     id_: str = Field(
         default_factory=lambda: str(uuid.uuid4()), description="Unique ID of the node."
     )
-    embedding: Optional[List[float]] = Field(
+    embedding: Optional[List[Union[float, int]]] = Field(
         default=None, description="Embedding of the node."
     )
 

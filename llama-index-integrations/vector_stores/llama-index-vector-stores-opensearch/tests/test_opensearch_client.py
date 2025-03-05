@@ -20,6 +20,8 @@ from llama_index.core.vector_stores.types import (
     VectorStoreQuery,
 )
 
+from opensearchpy import exceptions
+
 ##
 # Start Opensearch locally
 # cd tests
@@ -850,3 +852,333 @@ def test_efficient_filtering_used_when_enabled(os_stores: List[OpensearchVectorS
             embedding_field="embedding", query_embedding=[1], k=20, filters=filters
         )
         assert patched_default_approximate_search_query.called
+
+
+@pytest.mark.skipif(opensearch_not_available, reason="opensearch is not available")
+def test_binary_vector_initialisation() -> None:
+    """Test binary vector initialisation with valid and invalid configurations."""
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=8,
+        data_type="binary",
+        engine="faiss",
+        space_type="hamming",
+    )
+    assert client._data_type == "binary"
+    assert client._method["engine"] == "faiss"
+    assert client._method["space_type"] == "hamming"
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+    with pytest.raises(
+        exceptions.RequestError,
+        match="Dimension should be multiply of 8 for binary vector data type",
+    ):
+        OpensearchVectorClient(
+            endpoint="localhost:9200",
+            index=f"test_{uuid.uuid4().hex}",
+            dim=2,
+            data_type="binary",
+            engine="faiss",
+            space_type="hamming",
+        )
+
+    with pytest.raises(
+        ValueError, match="Binary vectors must use 'faiss' as the engine type"
+    ):
+        OpensearchVectorClient(
+            endpoint="localhost:9200",
+            index=f"test_{uuid.uuid4().hex}",
+            dim=8,
+            data_type="binary",
+            engine="lucene",
+            space_type="hamming",
+        )
+
+    with pytest.raises(
+        ValueError, match="Binary vectors must use 'hamming' as the space type"
+    ):
+        OpensearchVectorClient(
+            endpoint="localhost:9200",
+            index=f"test_{uuid.uuid4().hex}",
+            dim=8,
+            data_type="binary",
+            engine="faiss",
+            space_type="l2",
+        )
+
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=16,
+        data_type="binary",
+        engine="faiss",
+        space_type="hamming",
+    )
+    assert client._data_type == "binary"
+    assert client._method["engine"] == "faiss"
+    assert client._method["space_type"] == "hamming"
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+    custom_method = {
+        "name": "hnsw",
+        "space_type": "hamming",
+        "engine": "faiss",
+        "parameters": {"ef_construction": 128, "m": 24},
+    }
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=16,
+        data_type="binary",
+        method=custom_method,
+    )
+    assert client._data_type == "binary"
+    assert client._method == custom_method
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+
+@pytest.fixture()
+def binary_vector_store() -> Generator[OpensearchVectorStore, None, None]:
+    """Fixture for binary vector store testing."""
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=16,
+        data_type="binary",
+        method={
+            "name": "hnsw",
+            "space_type": "hamming",
+            "engine": "faiss",
+            "parameters": {"ef_construction": 256, "m": 48},
+        },
+    )
+
+    yield OpensearchVectorStore(client)
+
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+
+@pytest.mark.skipif(opensearch_not_available, reason="opensearch is not available")
+def test_binary_vector_functionality(
+    binary_vector_store: OpensearchVectorStore,
+) -> None:
+    """Test basic functionality with binary vectors."""
+    nodes = [
+        TextNode(
+            text="test1",
+            id_="test1",
+            embedding=[108, -116],
+        ),
+        TextNode(
+            text="test2",
+            id_="test2",
+            embedding=[-128, 127],
+        ),
+    ]
+
+    assert len(binary_vector_store.add(nodes)) == len(nodes)
+
+    query = VectorStoreQuery(query_embedding=[127, 15], similarity_top_k=1)
+    result = binary_vector_store.query(query)
+    assert result.nodes
+    assert result.nodes[0].get_content() == "test1"
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(opensearch_not_available, reason="opensearch is not available")
+async def test_binary_vector_async_functionality(
+    binary_vector_store: OpensearchVectorStore,
+) -> None:
+    """Test async functionality with binary vectors."""
+    nodes = [
+        TextNode(
+            text="test1",
+            id_="test1",
+            embedding=[108, -116],
+        ),
+        TextNode(
+            text="test2",
+            id_="test2",
+            embedding=[-128, 127],
+        ),
+    ]
+
+    assert len(await binary_vector_store.async_add(nodes)) == len(nodes)
+
+    query = VectorStoreQuery(query_embedding=[127, 15], similarity_top_k=1)
+    result = await binary_vector_store.aquery(query)
+    assert result.nodes
+    assert result.nodes[0].get_content() == "test1"
+
+
+@pytest.mark.skipif(opensearch_not_available, reason="opensearch is not available")
+def test_byte_vector_initialisation() -> None:
+    """Test byte vector initialisation with valid and invalid configurations."""
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=4,
+        data_type="byte",
+        engine="faiss",
+        space_type="l2",
+    )
+
+    assert client._data_type == "byte"
+    assert client._method["engine"] == "faiss"
+    assert client._method["space_type"] == "l2"
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=4,
+        data_type="byte",
+        engine="lucene",
+        space_type="l2",
+    )
+    assert client._data_type == "byte"
+    assert client._method["engine"] == "lucene"
+    assert client._method["space_type"] == "l2"
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+    with pytest.raises(
+        ValueError,
+        match="Byte vectors only support 'lucene' or 'faiss' as the engine type",
+    ):
+        OpensearchVectorClient(
+            endpoint="localhost:9200",
+            index=f"test_{uuid.uuid4().hex}",
+            dim=4,
+            data_type="byte",
+            engine="nmslib",
+            space_type="l2",
+        )
+
+    custom_method = {
+        "name": "hnsw",
+        "space_type": "l2",
+        "engine": "faiss",
+        "parameters": {"ef_construction": 128, "m": 24},
+    }
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=4,
+        data_type="byte",
+        method=custom_method,
+    )
+    assert client._data_type == "byte"
+    assert client._method == custom_method
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+
+@pytest.fixture()
+def byte_vector_store_faiss() -> Generator[OpensearchVectorStore, None, None]:
+    """Fixture for byte vector store testing with faiss engine."""
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=4,
+        data_type="byte",
+        method={
+            "name": "hnsw",
+            "space_type": "l2",
+            "engine": "faiss",
+            "parameters": {"ef_construction": 256, "m": 48},
+        },
+    )
+
+    yield OpensearchVectorStore(client)
+
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+
+@pytest.fixture(params=["faiss", "lucene"])
+def byte_vector_store(request) -> Generator[OpensearchVectorStore, None, None]:
+    """Fixture for byte vector store testing that alternates between engines."""
+    client = OpensearchVectorClient(
+        endpoint="localhost:9200",
+        index=f"test_{uuid.uuid4().hex}",
+        dim=4,
+        data_type="byte",
+        method={
+            "name": "hnsw",
+            "space_type": "l2",
+            "engine": request.param,
+            "parameters": {"ef_construction": 256, "m": 48},
+        },
+    )
+
+    yield OpensearchVectorStore(client)
+
+    client._os_client.indices.delete(index=client._index)
+    client._os_client.close()
+    client._os_async_client.close()
+
+
+@pytest.mark.skipif(opensearch_not_available, reason="opensearch is not available")
+def test_byte_vector_functionality(byte_vector_store: OpensearchVectorStore) -> None:
+    """Test basic functionality with byte vectors using both engines."""
+    nodes = [
+        TextNode(
+            text="test1",
+            id_="test1",
+            embedding=[108, -116, 75, -90],
+        ),
+        TextNode(
+            text="test2",
+            id_="test2",
+            embedding=[-128, 127, 0, 64],
+        ),
+    ]
+
+    assert len(byte_vector_store.add(nodes)) == len(nodes)
+
+    query = VectorStoreQuery(query_embedding=[108, -116, 75, -90], similarity_top_k=1)
+    result = byte_vector_store.query(query)
+    assert result.nodes
+    assert result.nodes[0].get_content() == "test1"
+
+
+@pytest.mark.asyncio()
+@pytest.mark.skipif(opensearch_not_available, reason="opensearch is not available")
+async def test_byte_vector_async_functionality(
+    byte_vector_store: OpensearchVectorStore,
+) -> None:
+    """Test async functionality with byte vectors using both engines."""
+    nodes = [
+        TextNode(
+            text="test1",
+            id_="test1",
+            embedding=[108, -116, 75, -90],
+        ),
+        TextNode(
+            text="test2",
+            id_="test2",
+            embedding=[-128, 127, 0, 64],
+        ),
+    ]
+
+    assert len(await byte_vector_store.async_add(nodes)) == len(nodes)
+
+    query = VectorStoreQuery(query_embedding=[108, -116, 75, -90], similarity_top_k=1)
+    result = await byte_vector_store.aquery(query)
+    assert result.nodes
+    assert result.nodes[0].get_content() == "test1"

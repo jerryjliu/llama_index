@@ -27,7 +27,7 @@ exclude = ["**/BUILD"]
 license = "MIT"
 name = "llama-index-vector-stores-opensearch"
 readme = "README.md"
-version = "0.5.2"
+version = "0.6.0"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
