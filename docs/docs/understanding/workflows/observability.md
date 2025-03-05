@@ -105,7 +105,7 @@ In a notebook environment it can be helpful to run a workflow step by step. You 
 
 ```python
 w = ConcurrentFlow(timeout=10, verbose=True)
-handler = w.run()
+handler = w.run(stepwise=True)
 
 while not handler.is_done():
     # run_step returns the step's output event
