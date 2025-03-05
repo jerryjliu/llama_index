@@ -7,10 +7,26 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.data_structs.data_structs import IndexDict
-from llama_index.core.indices.base import BaseIndex, IndexNode
+from llama_index.core.indices.base import BaseIndex, IndexNode  
 from llama_index.core.schema import BaseNode, NodeWithScore
 from llama_index.core.storage.docstore.types import RefDocInfo
 from llama_index.core.storage.storage_context import StorageContext
+
+class SafeUnpickler(pickle.Unpickler):
+    ALLOWED_CLASSES = {
+        "builtins": {"list", "dict", "str", "int", "float", "tuple", "set"},
+        "numpy.core.multiarray": {"_reconstruct", "scalar"},
+        "numpy": {"ndarray", "dtype"},
+        "collections": {"defaultdict"}
+    }
+
+    def find_class(self, module, name):
+        if module in self.ALLOWED_CLASSES and name in self.ALLOWED_CLASSES[module]:
+            return super().find_class(module, name)
+        raise pickle.UnpicklingError(f"Unauthorized class: {module}.{name}")
+
+def safe_pickle_load(file):
+    return SafeUnpickler(file).load()
 
 
 class BGEM3Index(BaseIndex[IndexDict]):
@@ -153,7 +169,7 @@ class BGEM3Index(BaseIndex[IndexDict]):
             int(k): v for k, v in index.index_struct.nodes_dict.items()
         }
         index._docs_pos_to_node_id = docs_pos_to_node_id
-        index._multi_embed_store = pickle.load(
+        index._multi_embed_store = safe_pickle_load(
             open(Path(persist_dir) / "multi_embed_store.pkl", "rb")
         )
         return index
