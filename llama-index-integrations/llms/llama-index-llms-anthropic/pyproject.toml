@@ -27,7 +27,7 @@ exclude = ["**/BUILD"]
 license = "MIT"
 name = "llama-index-llms-anthropic"
 readme = "README.md"
-version = "0.6.7"
+version = "0.6.8"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"

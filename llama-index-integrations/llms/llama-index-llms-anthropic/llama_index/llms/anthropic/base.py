@@ -467,14 +467,20 @@ class Anthropic(FunctionCallingLLM):
             chat_history.append(user_msg)
 
         tool_dicts = []
-        for tool in tools:
-            tool_dicts.append(
-                {
-                    "name": tool.metadata.name,
-                    "description": tool.metadata.description,
-                    "input_schema": tool.metadata.get_parameters_dict(),
-                }
-            )
+        if tools:
+            for tool in tools:
+                tool_dicts.append(
+                    {
+                        "name": tool.metadata.name,
+                        "description": tool.metadata.description,
+                        "input_schema": tool.metadata.get_parameters_dict(),
+                    }
+                )
+            if "prompt-caching" in kwargs.get("extra_headers", {}).get(
+                "anthropic-beta", ""
+            ):
+                tool_dicts[-1]["cache_control"] = {"type": "ephemeral"}
+
         return {"messages": chat_history, "tools": tool_dicts, **kwargs}
 
     def _validate_chat_with_tools_response(
