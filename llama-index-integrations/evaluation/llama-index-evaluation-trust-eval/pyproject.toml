@@ -1,0 +1,65 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
+
+[tool.codespell]
+check-filenames = true
+check-hidden = true
+skip = "*lock,*.pkl,*.tsv,*.csv,*.html,*.json,*.jsonl,*.pdf,*.txt,*.ipynb"
+
+[tool.llamahub]
+contains_example = false
+import_path = "llama_index.evaluation.trust_eval"
+
+[tool.llamahub.class_authors]
+TrustScoreEvaluator = "llama-index"
+
+[tool.mypy]
+disallow_untyped_defs = true
+exclude = ["_static", "build", "examples", "notebooks", "venv"]
+ignore_missing_imports = true
+python_version = "3.10"
+
+[tool.poetry]
+authors = ["Shang Hong Sim <simshanghong@gmail.com>"]
+description = "llama-index integration for trust-score evaluation"
+license = "CC BY-NC 4.0"
+name = "llama-index-evaluation-trust-eval"
+readme = "README.md"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+trust-eval = "^0.1.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+codespell = {extras = ["toml"], version = "^2.4.1"}
+ipython = "^8.31.0"
+jupyter = "^1.1.1"
+mypy = "^1.14.1"
+pre-commit = "^4.1.0"
+pylint = "^3.3.4"
+pytest = "^8.3.4"
+pytest-mock = "^3.14.0"
+ruff = "^0.9.3"
+tree-sitter-languages = "^1.10.2"
+types-deprecated = "^1.2.15.20241117"
+types-protobuf = "^5.29.1.20241207"
+types-pyyaml = "^6.0.12.20241230"
+types-redis = "^4.6.0.20241004"
+types-requests = "^2.32.0.20241016"
+types-setuptools = "^75.8.0.20250110"
+
+[[tool.poetry.packages]]
+include = "llama_index/"
+
+[tool.tomlsort]
+all = true
+in_place = true
+spaces_before_inline_comment = 2  # Match Python PEP 8
+spaces_indent_inline_array = 4  # Match Python PEP 8
+trailing_comma_inline_array = true
+
+[tool.tomlsort.overrides."tool.poetry.dependencies"]
+table_keys = false
