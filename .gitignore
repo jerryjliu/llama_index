@@ -2,6 +2,7 @@
 .pants.d/
 dist/
 migration_scripts/
+**data_wiki
 
 # IDEs
 .idea

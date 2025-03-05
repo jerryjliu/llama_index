@@ -78,3 +78,6 @@ class PromptType(str, Enum):
 
     # RankGPT rerank
     RANKGPT_RERANK = "rankgpt_rerank"
+
+    # REBEL rerank
+    REBEL_RERANK = "rebel_rerank"
