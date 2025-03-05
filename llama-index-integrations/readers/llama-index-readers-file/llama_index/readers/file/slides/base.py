@@ -5,7 +5,10 @@ Contains parsers for .pptx files.
 """
 
 import os
+import sys
+import shutil
 import tempfile
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 from fsspec import AbstractFileSystem
@@ -56,9 +59,52 @@ class PptxReader(BaseReader):
             "tokenizer": tokenizer,
         }
 
+    def find_libreoffice(self) -> str:
+        """Finds the LibreOffice executable path."""
+        libreoffice_path = shutil.which("soffice")
+
+        if not libreoffice_path and sys.platform == "win32":
+            # Check common installation paths on Windows
+            possible_paths = [
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+            ]
+            libreoffice_path = next(
+                (path for path in possible_paths if os.path.exists(path)), None
+            )
+
+        if not libreoffice_path:
+            raise OSError(
+                "LibreOffice (soffice) not found. Please install LibreOffice or add it to your system PATH."
+            )
+
+        return libreoffice_path
+
+    def convert_wmf_to_png(self, input_path: str) -> str:
+        """Convert WMF/EMF to PNG using LibreOffice."""
+        file_path = Path(input_path)
+        output_path = file_path.with_suffix(".png")
+
+        libreoffice_path = self.find_libreoffice()
+
+        subprocess.run(
+            [
+                libreoffice_path,
+                "--headless",
+                "--convert-to",
+                "png",
+                "--outdir",
+                str(file_path.parent),
+                str(file_path),
+            ],
+            check=True,
+        )
+
+        return str(output_path)
+
     def caption_image(self, tmp_image_file: str) -> str:
         """Generate text caption of image."""
-        from PIL import Image
+        from PIL import Image, UnidentifiedImageError
 
         model = self.parser_config["model"]
         feature_extractor = self.parser_config["feature_extractor"]
@@ -71,7 +117,20 @@ class PptxReader(BaseReader):
         num_beams = 4
         gen_kwargs = {"max_length": max_length, "num_beams": num_beams}
 
-        i_image = Image.open(tmp_image_file)
+        try:
+            i_image = Image.open(tmp_image_file)
+            image_format = i_image.format
+        except UnidentifiedImageError:
+            return "Error opening image file."
+
+        if image_format in ["WMF", "EMF"]:
+            try:
+                converted_path = self.convert_wmf_to_png(tmp_image_file)
+                i_image = Image.open(converted_path)
+            except Exception as e:
+                print(f"Error converting WMF/EMF image: {e}")
+                return f"Error converting WMF/EMF image"
+
         if i_image.mode != "RGB":
             i_image = i_image.convert(mode="RGB")
 
