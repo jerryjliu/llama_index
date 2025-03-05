@@ -313,7 +313,7 @@ def test_update_doc(vectara1) -> None:
     res = qe.retrieve("Find me something completely different.")
     assert len(res) == 1
     assert res[0].node.get_content() == docs[1].text
-    assert res[0].node.metadata["test_score"] == 14
+    assert res[0].node.metadata["document"]["test_score"] == 14
 
 
 @pytest.fixture()
@@ -505,13 +505,13 @@ def test_simple_retrieval_with_nodes(vectara3) -> None:
     )
     res = qe.retrieve("Find me something different")
     assert len(res) == 1
-    assert res[0].node.metadata["author"] == "Vectara"
-    assert res[0].node.metadata["title"] == "LlamaIndex Integration"
+    assert res[0].node.metadata["document"]["author"] == "Vectara"
+    assert res[0].node.metadata["document"]["title"] == "LlamaIndex Integration"
     assert res[0].node.get_content() == nodes[1].text_resource.text
+    assert res[0].node.metadata["test_score"] == 2
 
 
 def test_filter_with_nodes(vectara3) -> None:
-    nodes = get_nodes()
     qe = vectara3.as_retriever(
         similarity_top_k=2,
         n_sentences_before=0,
